@@ -13,17 +13,19 @@ from app.ui.utilidades import generar_y_abrir_memoria
 from app.validacion import leer_numero
 
 
-# Colores del texto y los campos sobre la tarjeta rosada de datos de entrada
-SOBRE_ROSA = "#FFFFFF"
-SUAVE_ROSA = "#FFD6E5"
+# Colores de la tarjeta de datos de entrada (azul marino con acentos celestes)
+FONDO_ENTRADA = "#0F2A44"
+BORDE_ENTRADA = "#1F4A70"
+SOBRE_ENTRADA = "#FFFFFF"
+SUAVE_ENTRADA = "#9FD8F7"
 
 
 def _estilo_campo():
-    """Estilo de los TextField sobre la tarjeta rosada (solo opciones que existan)."""
+    """Estilo de los TextField sobre la tarjeta de entrada (solo opciones que existan)."""
     estilo = dict(
         filled=True, bgcolor="#33000000", border_color="#8CFFFFFF",
-        focused_border_color=SOBRE_ROSA, color=SOBRE_ROSA, cursor_color=SOBRE_ROSA,
-        label_style=ft.TextStyle(color=SUAVE_ROSA),
+        focused_border_color=es.AZUL, color=SOBRE_ENTRADA, cursor_color=SOBRE_ENTRADA,
+        label_style=ft.TextStyle(color=SUAVE_ENTRADA),
         hint_style=ft.TextStyle(color="#99FFFFFF"),
         error_style=ft.TextStyle(color="#FFF176", weight=ft.FontWeight.W_600),
     )
@@ -70,7 +72,7 @@ class VistaCalculo:
                                      keyboard_type=ft.KeyboardType.NUMBER, **_estilo_campo())
         self.grupo_tipo = ft.RadioGroup(
             value=self.tipo, on_change=self._cambiar_tipo,
-            content=ft.Column([ft.Radio(value=k, label=v, fill_color=SOBRE_ROSA)
+            content=ft.Column([ft.Radio(value=k, label=v, fill_color=es.AZUL)
                                for k, v in modelo.NOMBRES_TIPO.items()], spacing=0),
         )
         self.campos = {}
@@ -80,42 +82,42 @@ class VistaCalculo:
         formulario = es.tarjeta(
             es.titulo("Datos de entrada", ft.Icons.EDIT_NOTE,
                       "La sección modificada es el estado inspeccionado (corrosión) o reforzado.",
-                      color=SOBRE_ROSA, acento=SOBRE_ROSA, color_sub=SUAVE_ROSA),
-            es.etiqueta_seccion("Identificación", SUAVE_ROSA),
+                      color=SOBRE_ENTRADA, acento=es.AZUL, color_sub=SUAVE_ENTRADA),
+            es.etiqueta_seccion("Identificación", SUAVE_ENTRADA),
             ft.ResponsiveRow([self.txt_proyecto, self.txt_nombre, self.txt_autores],
                              spacing=10, run_spacing=10),
-            es.etiqueta_seccion("Tipo de sección", SUAVE_ROSA),
+            es.etiqueta_seccion("Tipo de sección", SUAVE_ENTRADA),
             self.grupo_tipo,
-            es.etiqueta_seccion("Cotas de la sección", SUAVE_ROSA),
+            es.etiqueta_seccion("Cotas de la sección", SUAVE_ENTRADA),
             ft.Row([
-                ft.Text("Cota", expand=3, size=12.5, color=SUAVE_ROSA),
-                ft.Text("Ideal", expand=2, size=12.5, color=SOBRE_ROSA,
+                ft.Text("Cota", expand=3, size=12.5, color=SUAVE_ENTRADA),
+                ft.Text("Ideal", expand=2, size=12.5, color=SOBRE_ENTRADA,
                         weight=ft.FontWeight.W_600),
-                ft.Text("Modificada", expand=2, size=12.5, color=SOBRE_ROSA,
+                ft.Text("Modificada", expand=2, size=12.5, color=SOBRE_ENTRADA,
                         weight=ft.FontWeight.W_600),
             ]),
             self.filas_cotas,
-            es.etiqueta_seccion("Proyección en el tiempo", SUAVE_ROSA),
+            es.etiqueta_seccion("Proyección en el tiempo", SUAVE_ENTRADA),
             self.txt_edad,
             ft.ResponsiveRow(spacing=10, run_spacing=10, controls=[
                 ft.Container(boton("Calcular", self._on_calcular, ft.Icons.CALCULATE,
-                                   style=_estilo_boton(es.FONDO, SOBRE_ROSA)),
+                                   style=_estilo_boton(es.AZUL, es.TEXTO_OSCURO)),
                              col={"xs": 12, "sm": 6}),
                 ft.Container(boton("Guardar", self._on_guardar, ft.Icons.SAVE, "outlined",
-                                   style=_estilo_boton(None, SOBRE_ROSA, SOBRE_ROSA)),
+                                   style=_estilo_boton(None, SOBRE_ENTRADA, SOBRE_ENTRADA)),
                              col={"xs": 12, "sm": 6}),
                 ft.Container(boton("Generar memoria .docx", self._on_memoria,
                                    ft.Icons.DESCRIPTION, "outlined",
-                                   style=_estilo_boton(None, SOBRE_ROSA, SOBRE_ROSA)),
+                                   style=_estilo_boton(None, SOBRE_ENTRADA, SOBRE_ENTRADA)),
                              col={"xs": 12}),
             ]),
             ft.Row([boton("Cargar ejemplo", self._on_ejemplo, ft.Icons.AUTO_FIX_HIGH, "text",
-                          style=_estilo_boton(None, SOBRE_ROSA)),
+                          style=_estilo_boton(None, SOBRE_ENTRADA)),
                     boton("Limpiar", self._on_limpiar, ft.Icons.CLEAR_ALL, "text",
-                          style=_estilo_boton(None, SOBRE_ROSA))],
+                          style=_estilo_boton(None, SOBRE_ENTRADA))],
                    wrap=True),
             col={"xs": 12, "lg": 5, "xl": 4},
-            bgcolor=es.ROSA, color_borde=es.ROSA, sombra="#55FF005F",
+            bgcolor=FONDO_ENTRADA, color_borde=BORDE_ENTRADA, sombra="#4027B0F5",
         )
 
         self.panel_resultados = ft.Column(spacing=16, col={"xs": 12, "lg": 7, "xl": 8})
@@ -140,8 +142,8 @@ class VistaCalculo:
                 vertical_alignment=ft.CrossAxisAlignment.START, spacing=8,
                 controls=[
                     ft.Column([ft.Text(clave, weight=ft.FontWeight.BOLD, size=14,
-                                       color=SOBRE_ROSA),
-                               ft.Text(descripcion, size=11.5, color=SUAVE_ROSA)],
+                                       color=SOBRE_ENTRADA),
+                               ft.Text(descripcion, size=11.5, color=SUAVE_ENTRADA)],
                               spacing=0, expand=3),
                     ideal, mod,
                 ]))
