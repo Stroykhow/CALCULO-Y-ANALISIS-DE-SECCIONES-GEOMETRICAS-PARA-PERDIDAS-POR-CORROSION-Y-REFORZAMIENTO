@@ -1,2 +1,6 @@
-numpy
-matplotlib
+flet==1.0.4
+numpy==2.3.4
+scipy==1.16.2
+matplotlib==3.10.7
+docxtpl==0.20.1
+pytest==8.4.2

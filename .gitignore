@@ -1,0 +1,19 @@
+# Entorno virtual y caché de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Bases de datos de trabajo y reportes generados por la app
+datos/
+*.db
+*.sqlite3
+reportes/
+
+# Archivos temporales de Word y del sistema
+~$*.docx
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
