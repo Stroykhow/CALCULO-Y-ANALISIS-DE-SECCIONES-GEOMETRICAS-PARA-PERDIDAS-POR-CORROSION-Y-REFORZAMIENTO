@@ -4,14 +4,8 @@ import os
 import subprocess
 import sys
 
-import flet as ft
-
 from app import db, reporte
 from app.ui.compat import avisar
-
-COLOR_SEVERIDAD = {"VERDE": ft.Colors.GREEN_700, "NARANJA": ft.Colors.ORANGE_800,
-                   "ROJO": ft.Colors.RED_700}
-
 
 def abrir_archivo(ruta):
     """Abre un archivo con el programa predeterminado del sistema (Word)."""

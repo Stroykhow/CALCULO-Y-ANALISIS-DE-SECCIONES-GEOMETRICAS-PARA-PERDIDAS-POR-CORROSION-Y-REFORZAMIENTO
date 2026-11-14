@@ -164,6 +164,7 @@ Para regenerar la memoria de ejemplo: `python herramientas/generar_ejemplo.py "A
 │       ├── app.py           # ventana y navegación
 │       ├── vista_calculo.py # formulario, resultados y gráficas
 │       ├── vista_historial.py # listar, buscar, reabrir, memoria, eliminar
+│       ├── estilos.py       # paleta y componentes visuales (tarjetas, indicadores)
 │       ├── utilidades.py
 │       └── compat.py        # diferencias entre versiones de Flet
 ├── plantillas/memoria.docx  # plantilla Jinja propia ({%tr for %}, InlineImage)

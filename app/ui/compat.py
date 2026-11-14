@@ -68,3 +68,7 @@ def imagen_png(png, **kwargs):
     if _acepta(ft.Image, "src_base64"):   # Flet 0.2x
         return ft.Image(src_base64=base64.b64encode(png).decode("ascii"), **kwargs)
     return ft.Image(src=png, **kwargs)    # Flet 1.x acepta bytes en src
+
+
+# Ajuste de imágenes: ft.BoxFit en Flet 1.x, ft.ImageFit en 0.2x
+AJUSTE_CONTENER = getattr(getattr(ft, "BoxFit", None) or getattr(ft, "ImageFit"), "CONTAIN")
