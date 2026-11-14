@@ -2,13 +2,21 @@
 
 import flet as ft
 
-PRIMARIO = "#0D3B66"
-PRIMARIO_CLARO = "#E8EEF6"
-FONDO = "#F3F5F9"
-TARJETA = "#FFFFFF"
-BORDE = "#DDE3EC"
-TEXTO = "#1F2933"
-TEXTO_SUAVE = "#61707F"
+# Colores tomados del ícono de la aplicación
+ROSA = "#FF005F"
+AZUL = "#27B0F5"
+
+# Tema oscuro
+FONDO = "#0A0A0F"          # fondo de la ventana
+TARJETA = "#15171E"        # superficie de las tarjetas de resultados
+SUPERFICIE_2 = "#1D2029"   # encabezados de tabla, estados vacíos
+BORDE = "#2A2E3A"
+TEXTO = "#F2F4F8"
+TEXTO_SUAVE = "#9AA3B2"
+TEXTO_OSCURO = "#06121C"   # texto sobre el azul del encabezado
+
+PRIMARIO = AZUL            # color de acento (íconos y títulos)
+PRIMARIO_CLARO = SUPERFICIE_2
 
 def borde(ancho=1, color=BORDE):
     """Borde uniforme (ft.Border.all en Flet 1.x, ft.border.all en 0.2x)."""
@@ -28,35 +36,37 @@ def relleno(horizontal, vertical):
 
 SEVERIDAD = {
     # color fuerte, fondo suave, ícono
-    "VERDE": ("#2E7D32", "#E8F5E9", ft.Icons.CHECK_CIRCLE),
-    "NARANJA": ("#E65100", "#FFF3E0", ft.Icons.WARNING_AMBER),
-    "ROJO": ("#C62828", "#FFEBEE", ft.Icons.DANGEROUS),
+    "VERDE": ("#4ADE80", "#0F2A1A", ft.Icons.CHECK_CIRCLE),
+    "NARANJA": ("#FFA726", "#2E1D08", ft.Icons.WARNING_AMBER),
+    "ROJO": ("#FF5370", "#33101A", ft.Icons.DANGEROUS),
 }
 
 
-def tarjeta(*controles, col=None, padding=20, expand=False, spacing=14):
-    """Contenedor blanco con bordes redondeados y sombra suave."""
+def tarjeta(*controles, col=None, padding=20, expand=False, spacing=14, bgcolor=TARJETA,
+            color_borde=BORDE, sombra="#66000000"):
+    """Contenedor con bordes redondeados y sombra suave."""
     return ft.Container(
-        col=col, expand=expand, padding=padding, bgcolor=TARJETA, border_radius=14,
-        border=borde(),
-        shadow=ft.BoxShadow(blur_radius=14, spread_radius=0, color="#140D3B66",
-                            offset=ft.Offset(0, 3)),
+        col=col, expand=expand, padding=padding, bgcolor=bgcolor, border_radius=16,
+        border=borde(1, color_borde),
+        shadow=ft.BoxShadow(blur_radius=18, spread_radius=0, color=sombra,
+                            offset=ft.Offset(0, 4)),
         content=ft.Column(list(controles), spacing=spacing, tight=True),
     )
 
 
-def titulo(texto, icono=None, subtitulo=None):
+def titulo(texto, icono=None, subtitulo=None, color=TEXTO, acento=PRIMARIO,
+           color_sub=TEXTO_SUAVE):
     """Encabezado de una tarjeta."""
-    fila = [ft.Icon(icono, color=PRIMARIO, size=22)] if icono else []
-    fila.append(ft.Text(texto, size=17, weight=ft.FontWeight.W_600, color=TEXTO))
+    fila = [ft.Icon(icono, color=acento, size=22)] if icono else []
+    fila.append(ft.Text(texto, size=17, weight=ft.FontWeight.W_600, color=color))
     controles = [ft.Row(fila, spacing=8)]
     if subtitulo:
-        controles.append(ft.Text(subtitulo, size=12.5, color=TEXTO_SUAVE))
+        controles.append(ft.Text(subtitulo, size=12.5, color=color_sub))
     return ft.Column(controles, spacing=2, tight=True)
 
 
-def etiqueta_seccion(texto):
-    return ft.Text(texto.upper(), size=11.5, weight=ft.FontWeight.W_600, color=TEXTO_SUAVE)
+def etiqueta_seccion(texto, color=TEXTO_SUAVE):
+    return ft.Text(texto.upper(), size=11.5, weight=ft.FontWeight.W_600, color=color)
 
 
 def indicador(nombre, valor, unidad="%", color=PRIMARIO, col=None, detalle=None):
@@ -86,7 +96,7 @@ def chip(texto, color, fondo):
 
 def estado_vacio(icono, texto, detalle=""):
     return ft.Container(
-        padding=40, border_radius=14, bgcolor=PRIMARIO_CLARO,
+        padding=40, border_radius=16, bgcolor=TARJETA, border=borde(1, BORDE),
         content=ft.Column(
             [ft.Icon(icono, size=48, color=PRIMARIO),
              ft.Text(texto, size=16, weight=ft.FontWeight.W_600, color=TEXTO,

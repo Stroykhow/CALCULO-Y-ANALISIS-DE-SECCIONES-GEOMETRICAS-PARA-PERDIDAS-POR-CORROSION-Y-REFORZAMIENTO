@@ -13,9 +13,31 @@ from app.ui.utilidades import generar_y_abrir_memoria
 from app.validacion import leer_numero
 
 
+# Colores del texto y los campos sobre la tarjeta rosada de datos de entrada
+SOBRE_ROSA = "#FFFFFF"
+SUAVE_ROSA = "#FFD6E5"
+
+
+def _estilo_campo():
+    """Estilo de los TextField sobre la tarjeta rosada (solo opciones que existan)."""
+    estilo = dict(
+        filled=True, bgcolor="#33000000", border_color="#8CFFFFFF",
+        focused_border_color=SOBRE_ROSA, color=SOBRE_ROSA, cursor_color=SOBRE_ROSA,
+        label_style=ft.TextStyle(color=SUAVE_ROSA),
+        hint_style=ft.TextStyle(color="#99FFFFFF"),
+        error_style=ft.TextStyle(color="#FFF176", weight=ft.FontWeight.W_600),
+    )
+    return {k: v for k, v in estilo.items() if _acepta(ft.TextField, k)}
+
+
+def _estilo_boton(fondo, texto, borde=None):
+    lado = {"side": ft.BorderSide(1.5, borde)} if borde else {}
+    return ft.ButtonStyle(bgcolor=fondo, color=texto, **lado)
+
+
 def _campo_numero(valor="", unidad="m"):
     """TextField compacto para un número, con la unidad dentro del campo."""
-    extra = {}
+    extra = _estilo_campo()
     if _acepta(ft.TextField, "suffix_text"):
         extra["suffix_text"] = unidad
     elif _acepta(ft.TextField, "suffix"):
@@ -37,17 +59,18 @@ class VistaCalculo:
         self.tipo = modelo.EJEMPLO["tipo"]
 
         def texto(etiqueta, col):
-            return ft.TextField(label=etiqueta, dense=True, border_radius=8, col=col)
+            return ft.TextField(label=etiqueta, dense=True, border_radius=8, col=col,
+                                **_estilo_campo())
 
         self.txt_proyecto = texto("Proyecto (puente / estructura)", {"xs": 12, "sm": 6})
         self.txt_nombre = texto("Nombre del cálculo", {"xs": 12, "sm": 6})
         self.txt_autores = texto("Elaboró (autores de la memoria)", {"xs": 12})
         self.txt_edad = ft.TextField(label="Edad en la inspección (años) — opcional",
                                      dense=True, border_radius=8,
-                                     keyboard_type=ft.KeyboardType.NUMBER)
+                                     keyboard_type=ft.KeyboardType.NUMBER, **_estilo_campo())
         self.grupo_tipo = ft.RadioGroup(
             value=self.tipo, on_change=self._cambiar_tipo,
-            content=ft.Column([ft.Radio(value=k, label=v)
+            content=ft.Column([ft.Radio(value=k, label=v, fill_color=SOBRE_ROSA)
                                for k, v in modelo.NOMBRES_TIPO.items()], spacing=0),
         )
         self.campos = {}
@@ -56,35 +79,43 @@ class VistaCalculo:
 
         formulario = es.tarjeta(
             es.titulo("Datos de entrada", ft.Icons.EDIT_NOTE,
-                      "La sección modificada es el estado inspeccionado (corrosión) o reforzado."),
-            es.etiqueta_seccion("Identificación"),
+                      "La sección modificada es el estado inspeccionado (corrosión) o reforzado.",
+                      color=SOBRE_ROSA, acento=SOBRE_ROSA, color_sub=SUAVE_ROSA),
+            es.etiqueta_seccion("Identificación", SUAVE_ROSA),
             ft.ResponsiveRow([self.txt_proyecto, self.txt_nombre, self.txt_autores],
                              spacing=10, run_spacing=10),
-            es.etiqueta_seccion("Tipo de sección"),
+            es.etiqueta_seccion("Tipo de sección", SUAVE_ROSA),
             self.grupo_tipo,
-            es.etiqueta_seccion("Cotas de la sección"),
+            es.etiqueta_seccion("Cotas de la sección", SUAVE_ROSA),
             ft.Row([
-                ft.Text("Cota", expand=3, size=12.5, color=es.TEXTO_SUAVE),
-                ft.Text("Ideal", expand=2, size=12.5, color=es.TEXTO_SUAVE,
+                ft.Text("Cota", expand=3, size=12.5, color=SUAVE_ROSA),
+                ft.Text("Ideal", expand=2, size=12.5, color=SOBRE_ROSA,
                         weight=ft.FontWeight.W_600),
-                ft.Text("Modificada", expand=2, size=12.5, color=es.TEXTO_SUAVE,
+                ft.Text("Modificada", expand=2, size=12.5, color=SOBRE_ROSA,
                         weight=ft.FontWeight.W_600),
             ]),
             self.filas_cotas,
-            es.etiqueta_seccion("Proyección en el tiempo"),
+            es.etiqueta_seccion("Proyección en el tiempo", SUAVE_ROSA),
             self.txt_edad,
             ft.ResponsiveRow(spacing=10, run_spacing=10, controls=[
-                ft.Container(boton("Calcular", self._on_calcular, ft.Icons.CALCULATE),
+                ft.Container(boton("Calcular", self._on_calcular, ft.Icons.CALCULATE,
+                                   style=_estilo_boton(es.FONDO, SOBRE_ROSA)),
                              col={"xs": 12, "sm": 6}),
-                ft.Container(boton("Guardar", self._on_guardar, ft.Icons.SAVE, "outlined"),
+                ft.Container(boton("Guardar", self._on_guardar, ft.Icons.SAVE, "outlined",
+                                   style=_estilo_boton(None, SOBRE_ROSA, SOBRE_ROSA)),
                              col={"xs": 12, "sm": 6}),
                 ft.Container(boton("Generar memoria .docx", self._on_memoria,
-                                   ft.Icons.DESCRIPTION, "outlined"), col={"xs": 12}),
+                                   ft.Icons.DESCRIPTION, "outlined",
+                                   style=_estilo_boton(None, SOBRE_ROSA, SOBRE_ROSA)),
+                             col={"xs": 12}),
             ]),
-            ft.Row([boton("Cargar ejemplo", self._on_ejemplo, ft.Icons.AUTO_FIX_HIGH, "text"),
-                    boton("Limpiar", self._on_limpiar, ft.Icons.CLEAR_ALL, "text")],
+            ft.Row([boton("Cargar ejemplo", self._on_ejemplo, ft.Icons.AUTO_FIX_HIGH, "text",
+                          style=_estilo_boton(None, SOBRE_ROSA)),
+                    boton("Limpiar", self._on_limpiar, ft.Icons.CLEAR_ALL, "text",
+                          style=_estilo_boton(None, SOBRE_ROSA))],
                    wrap=True),
             col={"xs": 12, "lg": 5, "xl": 4},
+            bgcolor=es.ROSA, color_borde=es.ROSA, sombra="#55FF005F",
         )
 
         self.panel_resultados = ft.Column(spacing=16, col={"xs": 12, "lg": 7, "xl": 8})
@@ -109,8 +140,8 @@ class VistaCalculo:
                 vertical_alignment=ft.CrossAxisAlignment.START, spacing=8,
                 controls=[
                     ft.Column([ft.Text(clave, weight=ft.FontWeight.BOLD, size=14,
-                                       color=es.PRIMARIO),
-                               ft.Text(descripcion, size=11.5, color=es.TEXTO_SUAVE)],
+                                       color=SOBRE_ROSA),
+                               ft.Text(descripcion, size=11.5, color=SUAVE_ROSA)],
                               spacing=0, expand=3),
                     ideal, mod,
                 ]))
@@ -281,12 +312,12 @@ class VistaCalculo:
 
         figuras = ft.ResponsiveRow(spacing=16, run_spacing=16, controls=[
             es.tarjeta(es.titulo("Geometría", ft.Icons.SQUARE_FOOT),
-                       imagen_png(graficas.figura_a_png(graficas.figura_geometria(r)),
+                       imagen_png(graficas.figura_a_png(graficas.figura_geometria(r, oscuro=True)),
                                   fit=AJUSTE_CONTENER),
                        col={"xs": 12, "xl": 5}, padding=14),
             es.tarjeta(es.titulo("Proyección de la capacidad", ft.Icons.SHOW_CHART,
                                  self._texto_proyeccion()),
-                       imagen_png(graficas.figura_a_png(graficas.figura_capacidad(r)),
+                       imagen_png(graficas.figura_a_png(graficas.figura_capacidad(r, oscuro=True)),
                                   fit=AJUSTE_CONTENER),
                        col={"xs": 12, "xl": 7}, padding=14),
         ])
