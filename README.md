@@ -209,5 +209,5 @@ calculos(id PK, proyecto_id FK → proyectos.id ON DELETE CASCADE, nombre, tipo_
 
 | Nombre | Código | Usuario GitHub |
 |---|---|---|
-| _Estudiante 1_ | _código_ | `Stroykhow` |
-| _Estudiante 2_ | _código_ | _usuario_ |
+| Daniel Yanquen | 20251579035 | `Stroykhow` |
+| Maria Avendaño | 20251579068 | `Avendanomaria` |
