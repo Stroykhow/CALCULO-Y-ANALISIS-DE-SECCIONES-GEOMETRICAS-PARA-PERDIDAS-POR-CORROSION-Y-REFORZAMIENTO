@@ -209,5 +209,7 @@ calculos(id PK, proyecto_id FK → proyectos.id ON DELETE CASCADE, nombre, tipo_
 
 | Nombre | Código | Usuario GitHub |
 |---|---|---|
+
+Programación II · Grupo 18 · Universidad Distrital · 2026-III
 | Daniel Yanquen | 20251579035 | `Stroykhow` |
 | Maria Avendaño | 20251579068 | `Avendanomaria` |
