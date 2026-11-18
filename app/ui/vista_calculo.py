@@ -156,23 +156,70 @@ class VistaCalculo:
         self._mostrar_vacio()
         self.page.update()
 
+    
     def _leer_entradas(self):
-        """Lee y valida los campos. Devuelve (ideal, mod, edad) o None si hay errores."""
-        valores, hay_error = {"ideal": {}, "mod": {}}, False
+        """Valida datos y muestra las casillas incorrectas."""
+        valores = {"ideal": {}, "mod": {}}
+        errores = []
+
         for lado, campos in self.campos.items():
+            nombre_lado = "Ideal" if lado == "ideal" else "Modificada"
+
             for clave, campo in campos.items():
-                valor, error = leer_numero(campo.value, positivo=True)
+                valor, error = leer_numero(
+                    campo.value, positivo=True
+                )
+
                 campo.error_text = error
-                hay_error |= error is not None
+                campo.border_color = (
+                    "#FF5252" if error else "#8CFFFFFF"
+                )
+                campo.focused_border_color = (
+                    "#FF5252" if error else es.AZUL
+                )
+
+                if error:
+                    errores.append(
+                        f"{clave} ({nombre_lado}): {error}"
+                    )
+
                 valores[lado][clave] = valor
-        edad, error = leer_numero(self.txt_edad.value, positivo=True, obligatorio=False)
+
+        edad, error = leer_numero(
+            self.txt_edad.value,
+            positivo=True,
+            obligatorio=False
+        )
+
         self.txt_edad.error_text = error
-        hay_error |= error is not None
+        self.txt_edad.border_color = (
+            "#FF5252" if error else "#8CFFFFFF"
+        )
+        self.txt_edad.focused_border_color = (
+            "#FF5252" if error else es.AZUL
+        )
+
+        if error:
+            errores.append(
+                f"Edad de inspección: {error}"
+            )
+
         self.page.update()
-        if hay_error:
-            avisar(self.page, "Revise los campos marcados en rojo.", error=True)
+
+        if errores:
+            detalle = "\n".join(
+                f"• {mensaje}" for mensaje in errores
+            )
+
+            avisar(
+                self.page,
+                f"Se encontraron {len(errores)} errores:\n{detalle}",
+                error=True
+            )
             return None
+
         return valores["ideal"], valores["mod"], edad
+
 
     # ------------------------------------------------------------------ acciones
     def calcular(self):
