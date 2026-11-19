@@ -175,43 +175,8 @@ def crear(ruta):
     leyenda.alignment = WD_ALIGN_PARAGRAPH.CENTER
     leyenda.runs[0].italic = True
 
-    doc.add_heading("6. Análisis a flexión (NSR-10)", level=1)
-    doc.add_paragraph("{{ flex_estado }}")
-    doc.add_paragraph(
-        "Demanda: viga simplemente apoyada con carga distribuida. El peso propio es el área "
-        "de la sección por 24 kN/m³ y se suma a la carga muerta adicional (NSR-10 B.2.4):")
-    ecuacion(doc, "wu = máx(1.2·D + 1.6·L ; 1.4·D)          Mu = wu · L² / 8")
-    doc.add_paragraph(
-        "Resistencia: bloque rectangular equivalente de Whitney sobre la forma real de la "
-        "sección y compatibilidad de deformaciones en cada capa de barras (εcu = 0.003, "
-        "Es = 200 000 MPa). La profundidad del eje neutro c se obtiene de la condición de "
-        "equilibrio, resuelta con el método de Brent (scipy.optimize.brentq):")
-    ecuacion(doc, "a = β1·c          C = 0.85·f'c·A_comprimida(a)          "
-                  "εs = 0.003·(d − c)/c          fs = Es·εs ≤ fy")
-    ecuacion(doc, "C − Σ As·fs = 0          Mn = C·yC − Σ As·fs·ys          "
-                  "φ = 0.90 si εt ≥ 0.005 (NSR-10 C.9.3.2)")
-    ecuacion(doc, "Mcr = fr·Ig / yb,  fr = 0.62·√f'c          Chequeo: φMn ≥ Mu")
-    tabla_con_bucle(doc, ["Dato", "Unidad", "Valor"], "flex_datos", "x",
-                    ["dato", "unidad", "valor"], anchos=[9.0, 2.5, 4.0])
-    tabla_con_bucle(doc, ["Capa", "Barras", "Ø (mm)", "y (m)", "d (m)", "As sana (mm²)",
-                          "As corroída (mm²)", "fs (MPa)"],
-                    "flex_capas", "k",
-                    ["capa", "n", "diametro", "y", "d", "as_ideal", "as_mod", "fs"],
-                    anchos=[1.3, 1.5, 1.6, 1.6, 1.6, 2.6, 2.8, 2.0])
-    tabla_con_bucle(doc, ["Resultado", "Unidad", "Sección ideal", "Sección inspeccionada"],
-                    "flex_resultados", "f", ["resultado", "unidad", "ideal", "modificada"],
-                    anchos=[6.5, 2.0, 3.5, 4.0])
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run("{{ grafica_flexion }}")
-    leyenda = doc.add_paragraph("Figura 3. Sección inspeccionada: bloque de compresión, barras "
-                                "y diagrama de deformaciones.")
-    leyenda.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    leyenda.runs[0].italic = True
-    doc.add_paragraph("{{ flex_vida }}")
-
-    doc.add_heading("7. Chequeo y conclusión", level=1)
-    resumen = doc.add_table(rows=7, cols=2)
+    doc.add_heading("6. Chequeo y conclusión", level=1)
+    resumen = doc.add_table(rows=6, cols=2)
     resumen.style = "Table Grid"
     for fila, (etiqueta, valor) in zip(resumen.rows, [
         ("Pérdida de área", "{{ perdida_area }} %"),
@@ -220,24 +185,20 @@ def crear(ruta):
         ("Clasificación", "{{ severidad }}"),
         ("Dictamen", "{{ dictamen }}"),
         ("Chequeo Zx,mod ≥ 0.90 · Zx,ideal", "{{ chequeo }}"),
-        ("Chequeo a flexión φMn ≥ Mu (sección inspeccionada)", "{{ flex_chequeo }}"),
     ]):
         fila.cells[0].text = ""
         fila.cells[0].paragraphs[0].add_run(etiqueta).bold = True
         fila.cells[1].text = valor
     doc.add_paragraph()
     doc.add_paragraph("{{ conclusion }}")
-    doc.add_paragraph("{{ flex_conclusion }}")
 
-    doc.add_heading("8. Referencias", level=1)
+    doc.add_heading("7. Referencias", level=1)
     for ref in [
         "Gere, J. M., & Goodno, B. J. (2013). Mecánica de materiales (8.ª ed.). Cengage Learning.",
         "Steger, C. (1996). On the calculation of arbitrary moments of polygons. "
         "Technical Report FGBV-96-05, Technische Universität München.",
         "AASHTO (2020). LRFD Bridge Design Specifications (9.ª ed.).",
-        "Asociación Colombiana de Ingeniería Sísmica (2010). Reglamento NSR-10, Títulos B y C.",
-        "McCormac, J. C., & Brown, R. H. (2017). Diseño de concreto reforzado (10.ª ed.). "
-        "Alfaomega.",
+        "Asociación Colombiana de Ingeniería Sísmica (2010). Reglamento NSR-10, Título C.",
         "Ramírez Vargas, C. D. (2025). sections.py — librería de propiedades de secciones "
         "(GPL-3.0).",
     ]:

@@ -5,12 +5,7 @@ La base de datos se crea sola la primera vez (CREATE TABLE IF NOT EXISTS).
 
 Esquema
 -------
-proyectos (1) ──< calculos (N) ──< capas_acero (N)
-    calculos.proyecto_id   → proyectos.id
-    capas_acero.calculo_id → calculos.id
-
-Las bases creadas con versiones anteriores se actualizan solas: ``conectar``
-agrega las columnas de flexión que falten (ALTER TABLE ... ADD COLUMN).
+proyectos (1) ──< calculos (N)      calculos.proyecto_id → proyectos.id
 """
 
 import json
@@ -47,27 +42,7 @@ CREATE TABLE IF NOT EXISTS calculos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_calculos_proyecto ON calculos(proyecto_id);
-
-CREATE TABLE IF NOT EXISTS capas_acero (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    calculo_id   INTEGER NOT NULL REFERENCES calculos(id) ON DELETE CASCADE,
-    orden        INTEGER NOT NULL,
-    n_barras     INTEGER NOT NULL,
-    diametro_mm  REAL    NOT NULL,
-    y_m          REAL    NOT NULL       -- altura del centro de las barras desde la base
-);
-
-CREATE INDEX IF NOT EXISTS idx_capas_calculo ON capas_acero(calculo_id);
 """
-
-# Columnas de flexión agregadas en la versión 2 (nombre, tipo SQL)
-COLUMNAS_FLEXION = [
-    ("datos_flexion", "TEXT"),         # JSON: f'c, fy, luz, cargas, pérdida de acero
-    ("mu", "REAL"),                    # kN·m
-    ("phi_mn_ideal", "REAL"),          # kN·m
-    ("phi_mn_mod", "REAL"),            # kN·m
-    ("cumple_flexion", "INTEGER"),     # 1 / 0 para la sección modificada
-]
 
 
 def conectar(ruta=None):
@@ -79,18 +54,7 @@ def conectar(ruta=None):
     conexion.row_factory = sqlite3.Row
     conexion.execute("PRAGMA foreign_keys = ON")
     conexion.executescript(ESQUEMA)
-    _migrar(conexion)
     return conexion
-
-
-def _migrar(conexion):
-    """Agrega a ``calculos`` las columnas de flexión que no existan todavía."""
-    existentes = {fila["name"] for fila in conexion.execute("PRAGMA table_info(calculos)")}
-    for nombre, tipo in COLUMNAS_FLEXION:
-        if nombre not in existentes:
-            # nombre y tipo vienen de la constante de arriba, nunca del usuario
-            conexion.execute(f"ALTER TABLE calculos ADD COLUMN {nombre} {tipo}")
-    conexion.commit()
 
 
 def _ahora():
@@ -119,13 +83,11 @@ def guardar_calculo(conexion, proyecto, nombre, resultado, edad_anios=None):
     if not nombre:
         raise ValueError("El nombre del cálculo es obligatorio")
     proyecto_id = obtener_o_crear_proyecto(conexion, proyecto)
-    flex = resultado.flexion
     cursor = conexion.execute(
         """INSERT INTO calculos (proyecto_id, nombre, tipo_seccion, param_ideal, param_mod,
                edad_anios, area_ideal, area_mod, zx_ideal, zx_mod, perdida_zx,
-               severidad, dictamen, creado, datos_flexion, mu, phi_mn_ideal, phi_mn_mod,
-               cumple_flexion)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               severidad, dictamen, creado)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             proyecto_id, nombre, resultado.tipo,
             json.dumps(resultado.ideal_param), json.dumps(resultado.mod_param),
@@ -133,41 +95,18 @@ def guardar_calculo(conexion, proyecto, nombre, resultado, edad_anios=None):
             resultado.ideal["area"], resultado.modificada["area"],
             resultado.ideal["zx_crit"], resultado.modificada["zx_crit"],
             resultado.perdida_zx, resultado.severidad, resultado.dictamen, _ahora(),
-            json.dumps(flex.datos.a_diccionario()) if flex else None,
-            flex.modificada.mu if flex else None,
-            flex.ideal.phi_mn if flex else None,
-            flex.modificada.phi_mn if flex else None,
-            int(flex.modificada.cumple) if flex else None,
         ),
     )
-    calculo_id = cursor.lastrowid
-    if flex:
-        conexion.executemany(
-            """INSERT INTO capas_acero (calculo_id, orden, n_barras, diametro_mm, y_m)
-               VALUES (?, ?, ?, ?, ?)""",
-            [(calculo_id, i, c.n_barras, c.diametro_mm, c.y)
-             for i, c in enumerate(flex.datos.capas)],
-        )
     conexion.commit()
-    return calculo_id
+    return cursor.lastrowid
 
 
 def _a_diccionario(fila):
     datos = dict(fila)
-    for clave in ("param_ideal", "param_mod", "datos_flexion"):
-        if datos.get(clave):
+    for clave in ("param_ideal", "param_mod"):
+        if clave in datos:
             datos[clave] = json.loads(datos[clave])
     return datos
-
-
-def listar_capas(conexion, calculo_id):
-    """Capas de acero de un cálculo, en el orden en que se ingresaron."""
-    filas = conexion.execute(
-        """SELECT n_barras, diametro_mm, y_m AS y FROM capas_acero
-           WHERE calculo_id = ? ORDER BY orden""",
-        (calculo_id,),
-    ).fetchall()
-    return [dict(f) for f in filas]
 
 
 def listar_calculos(conexion, filtro=""):
@@ -191,11 +130,7 @@ def obtener_calculo(conexion, calculo_id):
            WHERE c.id = ?""",
         (calculo_id,),
     ).fetchone()
-    if not fila:
-        return None
-    calculo = _a_diccionario(fila)
-    calculo["capas"] = listar_capas(conexion, calculo_id)
-    return calculo
+    return _a_diccionario(fila) if fila else None
 
 
 def eliminar_calculo(conexion, calculo_id):

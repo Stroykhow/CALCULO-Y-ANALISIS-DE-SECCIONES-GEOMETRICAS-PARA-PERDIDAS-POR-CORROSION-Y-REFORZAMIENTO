@@ -18,8 +18,7 @@ COLOR_SEVERIDAD = {"VERDE": "#2e7d32", "NARANJA": "#ef6c00", "ROJO": "#c62828"}
 # Paletas: "claro" para la memoria de Word, "oscuro" para la interfaz
 TEMAS = {
     False: dict(rc={}, ideal="#1565c0", principal="black", area="#6a1b9a", ixx="#00838f",
-                actual="gray", severidad=COLOR_SEVERIDAD, resistencia="#2e7d32",
-                demanda="#c62828", acero="#455a64", compresion="#1565c0"),
+                actual="gray", severidad=COLOR_SEVERIDAD),
     True: dict(
         rc={"figure.facecolor": "#15171E", "axes.facecolor": "#1D2029",
             "axes.edgecolor": "#2A2E3A", "axes.labelcolor": "#F2F4F8",
@@ -29,8 +28,7 @@ TEMAS = {
             "legend.labelcolor": "#F2F4F8"},
         ideal="#27B0F5", principal="#FFFFFF", area="#FF005F", ixx="#B388FF",
         actual="#9AA3B2",
-        severidad={"VERDE": "#4ADE80", "NARANJA": "#FFA726", "ROJO": "#FF5370"},
-        resistencia="#4ADE80", demanda="#FF5370", acero="#CFD8DC", compresion="#27B0F5"),
+        severidad={"VERDE": "#4ADE80", "NARANJA": "#FFA726", "ROJO": "#FF5370"}),
 }
 
 
@@ -99,21 +97,6 @@ def _figura_capacidad(resultado, tema):
             ax.annotate(f"{x:.1f} años" if usar_tiempo else f"α = {x:.2f}", (x, nivel),
                         textcoords="offset points", xytext=(6, 6), fontsize=8, color=color)
 
-    flex = resultado.flexion
-    if flex is not None:
-        eje_f = flex.alfa * proy.edad_anios if usar_tiempo else flex.alfa
-        ax.plot(eje_f, flex.phi_mn_pct, color=tema["resistencia"], linewidth=2.2,
-                label="Resistencia a flexión φMn")
-        ax.plot(eje_f, flex.mu_pct, color=tema["demanda"], linewidth=1.4, linestyle=(0, (6, 3)),
-                label="Demanda Mu")
-        if flex.alfa_falla:
-            x = flex.alfa_falla * proy.edad_anios if usar_tiempo else flex.alfa_falla
-            y = float(np.interp(flex.alfa_falla, flex.alfa, flex.mu_pct))
-            ax.plot([x], [y], "X", color=tema["demanda"], markersize=9, zorder=6)
-            ax.annotate(f"φMn < Mu: {x:.1f} años" if usar_tiempo else f"φMn < Mu: α = {x:.2f}",
-                        (x, y), textcoords="offset points", xytext=(8, -14), fontsize=8,
-                        color=tema["demanda"])
-
     ax.axvline(actual, color=tema["actual"], linewidth=1, linestyle="-.",
                label="Estado inspeccionado")
     ax.set_xlabel("Tiempo desde la construcción (años)" if usar_tiempo
@@ -122,78 +105,6 @@ def _figura_capacidad(resultado, tema):
     ax.set_title("Proyección de la pérdida de capacidad (avance lineal del daño)")
     ax.set_xlim(eje[0], eje[-1])
     ax.legend(loc="best", fontsize=7)
-    return fig
-
-
-def figura_flexion(resultado_flexion, oscuro=False, titulo="Sección modificada"):
-    """Sección con barras, bloque de compresión y diagrama de deformaciones."""
-    with rc_context(TEMAS[oscuro]["rc"]):
-        return _figura_flexion(resultado_flexion, TEMAS[oscuro], titulo)
-
-
-def _limites_en(puntos, y):
-    """x mínimo y máximo del polígono a la altura y (donde la recta y corta sus lados)."""
-    P = np.asarray(puntos)
-    A, B = P, np.roll(P, -1, axis=0)
-    cruza = (A[:, 1] - y) * (B[:, 1] - y) <= 0
-    cruza &= A[:, 1] != B[:, 1]
-    t = (y - A[cruza, 1]) / (B[cruza, 1] - A[cruza, 1])
-    xs = A[cruza, 0] + t * (B[cruza, 0] - A[cruza, 0])
-    return (float(xs.min()), float(xs.max())) if len(xs) else (-0.1, 0.1)
-
-
-def _figura_flexion(r, tema, titulo):
-    fig = Figure(figsize=(7.6, 4.8), dpi=110, layout="constrained")
-    ax, ax_def = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.5, 1]}, sharey=True)
-    h, c = r.h, r.c
-    eje_neutro = h - c
-
-    p = _cerrar(r.puntos)
-    ax.plot(p[:, 0], p[:, 1], color=tema["principal"], linewidth=1.2)
-    ax.fill(p[:, 0], p[:, 1], color=tema["actual"], alpha=0.10)
-    if len(r.zona_comprimida) >= 3:
-        z = _cerrar(r.zona_comprimida)
-        ax.fill(z[:, 0], z[:, 1], color=tema["compresion"], alpha=0.45,
-                label=f"Bloque de compresión a = {r.a * 100:.1f} cm")
-    ax.axhline(eje_neutro, color=tema["demanda"], linestyle="--", linewidth=1,
-               label=f"Eje neutro c = {c * 100:.1f} cm")
-
-    for capa in r.capas:
-        n = capa["n_barras"]
-        x0, x1 = _limites_en(r.puntos, capa["y"])
-        recub = 0.12 * (x1 - x0)                          # dibujo: barras dentro del ancho
-        xs = np.linspace(x0 + recub, x1 - recub, n) if n > 1 else np.array([(x0 + x1) / 2])
-        color = tema["resistencia"] if capa["fluye"] else tema["severidad"]["NARANJA"]
-        ax.scatter(xs, np.full(n, capa["y"]), s=18 + capa["diametro_mm"] * 1.6, color=color,
-                   edgecolors=tema["principal"], linewidths=0.5, zorder=5)
-    ax.scatter([], [], color=tema["resistencia"], label="Barra que fluye (fs = fy)")
-    if not all(capa["fluye"] for capa in r.capas):
-        ax.scatter([], [], color=tema["severidad"]["NARANJA"], label="Barra que no fluye")
-    ax.set_aspect("equal", adjustable="datalim")
-    ax.set_xlabel("x (m)")
-    ax.set_ylabel("y (m)")
-    ax.set_title(titulo)
-    ax.legend(loc="upper right", fontsize=7)
-
-    # Diagrama de deformaciones (compresión positiva, en ‰)
-    ys = np.array([0.0, h])
-    eps = 0.003 * (ys - eje_neutro) / c * 1000
-    ax_def.plot(eps, ys, color=tema["principal"], linewidth=1.4)
-    ax_def.fill_betweenx(ys, 0, eps, color=tema["compresion"], alpha=0.15)
-    ax_def.axvline(0, color=tema["actual"], linewidth=0.8)
-    ax_def.axhline(eje_neutro, color=tema["demanda"], linestyle="--", linewidth=1)
-    for capa in r.capas:
-        ax_def.plot([-capa["eps"] * 1000], [capa["y"]], "o", color=tema["resistencia"]
-                    if capa["fluye"] else tema["severidad"]["NARANJA"], zorder=5)
-    ax_def.axvline(-r.eps_y * 1000, color=tema["severidad"]["NARANJA"], linestyle=":",
-                   linewidth=1, label=f"εy = {r.eps_y * 1000:.2f} ‰")
-    ax_def.annotate("εcu = 3 ‰", (3, h), textcoords="offset points", xytext=(-10, -14),
-                    fontsize=8, ha="right")
-    ax_def.annotate(f"εt = {r.eps_t * 1000:.1f} ‰ → φ = {r.phi:.2f}",
-                    (-r.eps_t * 1000, 0), textcoords="offset points", xytext=(6, 8), fontsize=8)
-    ax_def.set_xlabel("Deformación (‰), compresión +")
-    ax_def.set_title("Deformaciones")
-    ax_def.legend(loc="center right", fontsize=7)
     return fig
 
 
