@@ -215,6 +215,7 @@ Para regenerar la memoria de ejemplo: `python herramientas/generar_ejemplo.py "A
 │   └── ui/
 │       ├── app.py           # ventana y navegación
 │       ├── vista_calculo.py # formulario, resultados y gráficas
+│       ├── panel_flexion.py # datos de acero y cargas, y resultados a flexión
 │       ├── vista_historial.py # listar, buscar, reabrir, memoria, eliminar
 │       ├── estilos.py       # paleta y componentes visuales (tarjetas, indicadores)
 │       ├── utilidades.py

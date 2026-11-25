@@ -145,9 +145,17 @@ def _limites_en(puntos, y):
 def _figura_flexion(r, tema, titulo):
     fig = Figure(figsize=(7.6, 4.8), dpi=110, layout="constrained")
     ax, ax_def = fig.subplots(1, 2, gridspec_kw={"width_ratios": [1.5, 1]}, sharey=True)
-    h, c = r.h, r.c
-    eje_neutro = h - c
+    _dibujar_seccion(ax, r, tema, titulo)
+    _dibujar_deformaciones(ax_def, r, tema)
+    return fig
 
+
+def _color_barra(capa, tema):
+    return tema["resistencia"] if capa["fluye"] else tema["severidad"]["NARANJA"]
+
+
+def _dibujar_seccion(ax, r, tema, titulo):
+    """Contorno, bloque de compresión, eje neutro y barras (verdes si fluyen)."""
     p = _cerrar(r.puntos)
     ax.plot(p[:, 0], p[:, 1], color=tema["principal"], linewidth=1.2)
     ax.fill(p[:, 0], p[:, 1], color=tema["actual"], alpha=0.10)
@@ -155,17 +163,16 @@ def _figura_flexion(r, tema, titulo):
         z = _cerrar(r.zona_comprimida)
         ax.fill(z[:, 0], z[:, 1], color=tema["compresion"], alpha=0.45,
                 label=f"Bloque de compresión a = {r.a * 100:.1f} cm")
-    ax.axhline(eje_neutro, color=tema["demanda"], linestyle="--", linewidth=1,
-               label=f"Eje neutro c = {c * 100:.1f} cm")
-
+    ax.axhline(r.h - r.c, color=tema["demanda"], linestyle="--", linewidth=1,
+               label=f"Eje neutro c = {r.c * 100:.1f} cm")
     for capa in r.capas:
         n = capa["n_barras"]
         x0, x1 = _limites_en(r.puntos, capa["y"])
         recub = 0.12 * (x1 - x0)                          # dibujo: barras dentro del ancho
         xs = np.linspace(x0 + recub, x1 - recub, n) if n > 1 else np.array([(x0 + x1) / 2])
-        color = tema["resistencia"] if capa["fluye"] else tema["severidad"]["NARANJA"]
-        ax.scatter(xs, np.full(n, capa["y"]), s=18 + capa["diametro_mm"] * 1.6, color=color,
-                   edgecolors=tema["principal"], linewidths=0.5, zorder=5)
+        ax.scatter(xs, np.full(n, capa["y"]), s=18 + capa["diametro_mm"] * 1.6,
+                   color=_color_barra(capa, tema), edgecolors=tema["principal"],
+                   linewidths=0.5, zorder=5)
     ax.scatter([], [], color=tema["resistencia"], label="Barra que fluye (fs = fy)")
     if not all(capa["fluye"] for capa in r.capas):
         ax.scatter([], [], color=tema["severidad"]["NARANJA"], label="Barra que no fluye")
@@ -173,28 +180,29 @@ def _figura_flexion(r, tema, titulo):
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
     ax.set_title(titulo)
-    ax.legend(loc="upper right", fontsize=7)
+    ax.legend(loc="center right", fontsize=7)
 
-    # Diagrama de deformaciones (compresión positiva, en ‰)
-    ys = np.array([0.0, h])
-    eps = 0.003 * (ys - eje_neutro) / c * 1000
-    ax_def.plot(eps, ys, color=tema["principal"], linewidth=1.4)
-    ax_def.fill_betweenx(ys, 0, eps, color=tema["compresion"], alpha=0.15)
-    ax_def.axvline(0, color=tema["actual"], linewidth=0.8)
-    ax_def.axhline(eje_neutro, color=tema["demanda"], linestyle="--", linewidth=1)
+
+def _dibujar_deformaciones(ax, r, tema):
+    """Diagrama lineal de deformaciones (compresión positiva, en ‰) con las barras."""
+    eje_neutro = r.h - r.c
+    ys = np.array([0.0, r.h])
+    eps = 0.003 * (ys - eje_neutro) / r.c * 1000
+    ax.plot(eps, ys, color=tema["principal"], linewidth=1.4)
+    ax.fill_betweenx(ys, 0, eps, color=tema["compresion"], alpha=0.15)
+    ax.axvline(0, color=tema["actual"], linewidth=0.8)
+    ax.axhline(eje_neutro, color=tema["demanda"], linestyle="--", linewidth=1)
     for capa in r.capas:
-        ax_def.plot([-capa["eps"] * 1000], [capa["y"]], "o", color=tema["resistencia"]
-                    if capa["fluye"] else tema["severidad"]["NARANJA"], zorder=5)
-    ax_def.axvline(-r.eps_y * 1000, color=tema["severidad"]["NARANJA"], linestyle=":",
-                   linewidth=1, label=f"εy = {r.eps_y * 1000:.2f} ‰")
-    ax_def.annotate("εcu = 3 ‰", (3, h), textcoords="offset points", xytext=(-10, -14),
-                    fontsize=8, ha="right")
-    ax_def.annotate(f"εt = {r.eps_t * 1000:.1f} ‰ → φ = {r.phi:.2f}",
-                    (-r.eps_t * 1000, 0), textcoords="offset points", xytext=(6, 8), fontsize=8)
-    ax_def.set_xlabel("Deformación (‰), compresión +")
-    ax_def.set_title("Deformaciones")
-    ax_def.legend(loc="center right", fontsize=7)
-    return fig
+        ax.plot([-capa["eps"] * 1000], [capa["y"]], "o", color=_color_barra(capa, tema), zorder=5)
+    ax.axvline(-r.eps_y * 1000, color=tema["severidad"]["NARANJA"], linestyle=":",
+               linewidth=1, label=f"εy = {r.eps_y * 1000:.2f} ‰")
+    ax.annotate("εcu = 3 ‰", (3, r.h), textcoords="offset points", xytext=(-10, -14),
+                fontsize=8, ha="right")
+    ax.annotate(f"εt = {r.eps_t * 1000:.1f} ‰ → φ = {r.phi:.2f}", (-r.eps_t * 1000, 0),
+                textcoords="offset points", xytext=(6, 8), fontsize=8)
+    ax.set_xlabel("Deformación (‰), compresión +")
+    ax.set_title("Deformaciones")
+    ax.legend(loc="center right", fontsize=7)
 
 
 def figura_a_png(figura):

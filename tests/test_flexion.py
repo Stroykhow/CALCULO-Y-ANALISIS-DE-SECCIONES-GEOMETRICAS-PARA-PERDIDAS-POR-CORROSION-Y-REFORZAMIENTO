@@ -94,6 +94,27 @@ def test_recorte_de_la_zona_comprimida():
     assert modelo.propiedades_lote(zona, 2.0)["area"][0] == pytest.approx(1.0)
 
 
+@pytest.mark.parametrize("y0", [0.0, 0.05, 0.38, 0.9, 1.45, 1.55])
+def test_recorte_bulb_tee_contra_integracion_del_ancho(y0):
+    """El área recortada coincide con sumar el ancho b(y) de la viga en unas 20 000 franjas
+    (regla del punto medio), una referencia independiente del recorte del polígono."""
+    p = modelo.EJEMPLO["ideal"]
+    puntos = modelo.construir_seccion("bulb_tee", p).points
+    zona = fx.recortar_arriba(puntos, y0)
+
+    bordes = np.linspace(y0, p["d1"], 19_998)   # 19 997 franjas: ningún punto medio cae
+    #                                             justo en la altura de un vértice
+    ys = (bordes[:-1] + bordes[1:]) / 2                    # puntos medios de las franjas
+    A, B = puntos, np.roll(puntos, -1, axis=0)
+    y = ys[:, np.newaxis]                                  # (franjas, 1) frente a (1, lados)
+    cruza = (A[:, 1] - y) * (B[:, 1] - y) < 0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        x = A[:, 0] + (y - A[:, 1]) / (B[:, 1] - A[:, 1]) * (B[:, 0] - A[:, 0])
+    ancho = np.where(cruza, x, -np.inf).max(axis=1) - np.where(cruza, x, np.inf).min(axis=1)
+    area_ref = (ancho * np.diff(bordes)).sum()
+    assert modelo.propiedades_lote(zona, p["d1"])["area"][0] == pytest.approx(area_ref, rel=1e-4)
+
+
 def test_comparacion_y_proyeccion_del_ejemplo():
     e = modelo.EJEMPLO
     r = modelo.comparar(e["tipo"], e["ideal"], e["modificada"], e["edad_anios"], fx.EJEMPLO)
