@@ -167,7 +167,8 @@ def contexto_memoria(calculo, resultado, autores=""):
         perdida_zx=f"{resultado.perdida_zx:.2f}",
         severidad=resultado.severidad,
         dictamen=resultado.dictamen,
-        chequeo="CUMPLE" if resultado.cumple else "NO CUMPLE",
+        chequeo=("Sí, dentro del límite" if resultado.cumple
+                 else "No, supera el 10 %: requiere revisar la capacidad"),
         conclusion=conclusion,
         **_contexto_flexion(resultado),
     )

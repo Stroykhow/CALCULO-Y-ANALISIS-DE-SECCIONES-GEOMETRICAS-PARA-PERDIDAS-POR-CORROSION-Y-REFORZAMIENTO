@@ -323,14 +323,15 @@ class VistaCalculo:
                            controls=[
                 ft.Icon(icono, color=color, size=44),
                 ft.Column(spacing=2, expand=True, controls=[
-                    ft.Text(f"Clasificación {r.severidad}", size=13, color=color,
-                            weight=ft.FontWeight.W_600),
+                    ft.Text(f"Alerta de deterioro {r.severidad} · pérdida de sección",
+                            size=13, color=color, weight=ft.FontWeight.W_600),
                     ft.Text(r.dictamen, size=20, weight=ft.FontWeight.BOLD, color=es.TEXTO),
                     ft.Text(f"Pérdida del módulo resistente crítico Zx: {r.perdida_zx:.2f} %",
                             size=13, color=es.TEXTO_SUAVE),
                 ]),
-                es.chip("CUMPLE" if r.cumple else "NO CUMPLE", es.TARJETA,
-                        es.SEVERIDAD["VERDE" if r.cumple else "ROJO"][0]),
+                # Alerta de deterioro (no es un chequeo de resistencia: eso es φMn ≥ Mu)
+                es.chip("Zx ≥ 90 % del diseño" if r.cumple else "Zx < 90 % del diseño",
+                        es.TARJETA, color),
             ]),
         )
 

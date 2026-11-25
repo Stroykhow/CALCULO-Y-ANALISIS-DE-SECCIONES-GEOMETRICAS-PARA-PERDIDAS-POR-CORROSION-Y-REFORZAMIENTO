@@ -38,7 +38,7 @@ preguntas:
 
 1. ¿Cuánto cambian A, el centroide, Ixx, Iyy y Zx respecto a la sección de diseño?
 2. ¿Qué tan grave es el daño? Se clasifica por la pérdida de Zx:
-   | Pérdida de Zx | Clasificación | Dictamen |
+   | Pérdida de Zx | Alerta de deterioro | Dictamen |
    |---|---|---|
    | < 10 % | VERDE | Mantenimiento preventivo |
    | 10 % a 25 % | NARANJA | Rediseño de su capacidad nominal |

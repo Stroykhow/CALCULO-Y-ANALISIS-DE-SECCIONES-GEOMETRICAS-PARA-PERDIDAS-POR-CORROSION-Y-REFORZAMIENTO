@@ -137,7 +137,8 @@ def crear(ruta):
     ecuacion(doc, "Variación (%) = (Modificada − Ideal) / Ideal × 100          "
                   "Pérdida (%) = −Variación")
     doc.add_paragraph(
-        "La severidad se clasifica según la pérdida del módulo resistente crítico Zx: "
+        "La severidad es una alerta de deterioro (no un chequeo de resistencia, que se hace a "
+        "flexión con φMn ≥ Mu) y se clasifica según la pérdida del módulo resistente crítico Zx: "
         "VERDE (< 10 %) mantenimiento preventivo; NARANJA (10 % a 25 %) rediseño de la "
         "capacidad nominal; ROJO (> 25 %) intervención inminente.")
 
@@ -219,7 +220,7 @@ def crear(ruta):
         ("Pérdida de módulo resistente Zx", "{{ perdida_zx }} %"),
         ("Clasificación", "{{ severidad }}"),
         ("Dictamen", "{{ dictamen }}"),
-        ("Chequeo Zx,mod ≥ 0.90 · Zx,ideal", "{{ chequeo }}"),
+        ("Alerta de deterioro: ¿Zx,mod ≥ 0.90 · Zx,ideal?", "{{ chequeo }}"),
         ("Chequeo a flexión φMn ≥ Mu (sección inspeccionada)", "{{ flex_chequeo }}"),
     ]):
         fila.cells[0].text = ""

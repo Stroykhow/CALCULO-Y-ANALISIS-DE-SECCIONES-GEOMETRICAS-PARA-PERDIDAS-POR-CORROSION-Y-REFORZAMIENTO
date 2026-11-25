@@ -22,7 +22,7 @@ def test_contexto_tiene_tablas_y_chequeo():
     contexto = reporte.contexto_memoria(calculo, reporte.recalcular(calculo), "Autores")
     assert len(contexto["parametros"]) == len(modelo.PARAMETROS["bulb_tee"])
     assert len(contexto["propiedades"]) == len(modelo.PROPIEDADES)
-    assert contexto["chequeo"] in ("CUMPLE", "NO CUMPLE")
+    assert contexto["chequeo"].startswith("No, supera el 10 %")     # 12.91 % de pérdida
     assert contexto["severidad"] == "NARANJA"
 
 
