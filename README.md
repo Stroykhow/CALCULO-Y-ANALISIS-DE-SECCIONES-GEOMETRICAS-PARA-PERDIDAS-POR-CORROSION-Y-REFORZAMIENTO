@@ -10,15 +10,27 @@ sección inspeccionada, clasifica la severidad y proyecta en qué momento se cru
 umbrales de intervención si el daño sigue avanzando. Además, guarda los cálculos en SQLite
 y genera la memoria de cálculo en Word.
 
-| Vista Cálculo | Vista Historial |
+| Resultados: flexión, estaciones y alerta de deterioro | Flexión de la sección inspeccionada |
 |---|---|
-| ![Cálculo](ejemplos/capturas/calculo.png) | ![Historial](ejemplos/capturas/historial.png) |
+| ![Cálculo](ejemplos/capturas/calculo.png) | ![Flexión](ejemplos/capturas/calculo_flexion.png) |
+
+| Revisión por estaciones (flexión y cortante) | Resultados por estación |
+|---|---|
+| ![Estaciones](ejemplos/capturas/calculo_estaciones.png) | ![Tabla de estaciones](ejemplos/capturas/tabla_estaciones.png) |
+
+| Vista Historial | |
+|---|---|
+| ![Historial](ejemplos/capturas/historial.png) | |
 
 Gráficas que produce la aplicación para el caso de ejemplo:
 
 | Geometría | Proyección de la capacidad |
 |---|---|
 | ![Geometría](ejemplos/capturas/grafica_geometria.png) | ![Capacidad](ejemplos/capturas/grafica_capacidad.png) |
+
+| Flexión NSR-10 (bloque de Whitney y deformaciones) | Resistencia frente a demanda a lo largo de la viga |
+|---|---|
+| ![Flexión](ejemplos/capturas/grafica_flexion.png) | ![Estaciones](ejemplos/capturas/grafica_estaciones.png) |
 
 Ejemplo de memoria generada: [`ejemplos/memoria_ejemplo.docx`](ejemplos/memoria_ejemplo.docx)
 
