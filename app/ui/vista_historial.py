@@ -62,7 +62,7 @@ class VistaHistorial:
                 columns=[ft.DataColumn(ft.Text(t, weight=ft.FontWeight.W_600)) for t in (
                     "Id", "Proyecto", "Cálculo", "Sección", "A ideal (m²)", "A mod (m²)",
                     "Zx ideal (m³)", "Zx mod (m³)", "Pérdida Zx (%)", "Severidad",
-                    "Fecha", "Acciones")],
+                    "φMn mod (kN·m)", "Mu (kN·m)", "Flexión", "Fecha", "Acciones")],
                 rows=[self._fila(c) for c in calculos],
             )
             self.contenido.controls = [es.tarjeta(
@@ -93,10 +93,22 @@ class VistaHistorial:
             ft.DataCell(ft.Text(f"{c['perdida_zx']:.2f}", color=color,
                                 weight=ft.FontWeight.W_600)),
             ft.DataCell(es.chip(c["severidad"], color, fondo)),
+            *self._celdas_flexion(c),
             ft.DataCell(ft.Text(c["creado"].replace("T", " ")[:16], color=es.TEXTO_SUAVE)),
             ft.DataCell(acciones),
         ]
         return ft.DataRow(cells=celdas)
+
+    @staticmethod
+    def _celdas_flexion(c):
+        """φMn, Mu y CUMPLE / NO CUMPLE, o guiones si el cálculo no evaluó flexión."""
+        if c.get("phi_mn_mod") is None:
+            return [ft.DataCell(ft.Text("—", color=es.TEXTO_SUAVE)) for _ in range(3)]
+        cumple = bool(c["cumple_flexion"])
+        color, fondo, _ = es.SEVERIDAD["VERDE" if cumple else "ROJO"]
+        return [ft.DataCell(ft.Text(f"{c['phi_mn_mod']:,.0f}")),
+                ft.DataCell(ft.Text(f"{c['mu']:,.0f}")),
+                ft.DataCell(es.chip("CUMPLE" if cumple else "NO CUMPLE", color, fondo))]
 
     def _abrir(self, calculo_id):
         calculo = db.obtener_calculo(self.conexion, calculo_id)

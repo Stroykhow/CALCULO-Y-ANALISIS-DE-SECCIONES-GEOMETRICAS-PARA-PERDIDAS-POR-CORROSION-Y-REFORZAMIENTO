@@ -239,6 +239,7 @@ class Resultado:
     proyeccion: Proyeccion
     puntos_ideal: np.ndarray
     puntos_mod: np.ndarray
+    flexion: object = None           # flexion.ComparacionFlexion, si se evaluó a flexión
 
     @property
     def cumple(self):
@@ -332,8 +333,12 @@ def proyectar_degradacion(tipo, p_ideal, p_mod, edad_anios=None, n=200):
                       float(edad_anios) if edad_anios else None)
 
 
-def comparar(tipo, p_ideal, p_mod, edad_anios=None):
-    """Calcula todo el análisis ideal vs modificada y devuelve un ``Resultado``."""
+def comparar(tipo, p_ideal, p_mod, edad_anios=None, datos_flexion=None):
+    """Calcula todo el análisis ideal vs modificada y devuelve un ``Resultado``.
+
+    Si se pasa ``datos_flexion`` (un ``flexion.DatosFlexion``), también evalúa
+    la resistencia a flexión de las dos secciones y su proyección en el tiempo.
+    """
     p_ideal = validar_parametros(tipo, p_ideal)
     p_mod = validar_parametros(tipo, p_mod)
     if edad_anios is not None and edad_anios <= 0:
@@ -343,11 +348,18 @@ def comparar(tipo, p_ideal, p_mod, edad_anios=None):
     perdidas = -variacion_porcentual([ideal["area"], ideal["ixx"], ideal["zx_crit"]],
                                      [mod["area"], mod["ixx"], mod["zx_crit"]])
     severidad, dictamen = clasificar(perdidas[2])
+    proyeccion = proyectar_degradacion(tipo, p_ideal, p_mod, edad_anios)
+    resultado_flexion = None
+    if datos_flexion is not None:
+        from app.flexion import comparar_flexion   # import local: flexion usa este módulo
+        resultado_flexion = comparar_flexion(tipo, p_ideal, p_mod, datos_flexion, edad_anios,
+                                             alfa_max=float(proyeccion.alfa[-1]))
     return Resultado(
         tipo=tipo, ideal_param=p_ideal, mod_param=p_mod, ideal=ideal, modificada=mod,
         perdida_area=float(perdidas[0]), perdida_ixx=float(perdidas[1]),
         perdida_zx=float(perdidas[2]), severidad=severidad, dictamen=dictamen,
-        proyeccion=proyectar_degradacion(tipo, p_ideal, p_mod, edad_anios),
+        proyeccion=proyeccion,
         puntos_ideal=construir_seccion(tipo, p_ideal).points,
         puntos_mod=construir_seccion(tipo, p_mod).points,
+        flexion=resultado_flexion,
     )
