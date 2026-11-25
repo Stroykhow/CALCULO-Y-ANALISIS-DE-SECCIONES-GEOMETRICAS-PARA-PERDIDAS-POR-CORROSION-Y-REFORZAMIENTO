@@ -60,3 +60,11 @@ def test_contexto_de_estaciones():
     assert len(contexto["est_filas"]) == 18
     assert contexto["est_chequeo"].startswith("NO CUMPLE")
     assert "x = 1 m" in contexto["est_resumen"]
+
+
+def test_formato_de_restos_numericos_y_umbral_superado():
+    assert reporte.formatear(3.5e-19) == "0"
+    assert reporte.formatear(0.226462) == "0.226462"
+    assert reporte._remanente(21.5, 25) == "Ya superado"
+    assert reporte._remanente(30.0, 25) == "5.0"
+    assert reporte._remanente(None, 25) == "—"

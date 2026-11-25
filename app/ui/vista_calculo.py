@@ -365,10 +365,12 @@ class VistaCalculo:
     @staticmethod
     def _indicador_vida(proy, col):
         t10 = proy.tiempo_umbral(modelo.UMBRAL_PREVENTIVO)
+        if t10 is not None and t10 <= proy.edad_anios:
+            return es.indicador("Vida hasta 10 % de pérdida", "Ya superado", "",
+                                color=es.SEVERIDAD["NARANJA"][0], col=col, detalle=f"Se superó a los {t10:.1f} años")
         if t10 is not None:
-            remanente = max(t10 - proy.edad_anios, 0.0)
-            return es.indicador("Vida hasta 10 % de pérdida", f"{remanente:.1f}", "años",
-                                col=col, detalle=f"Ocurre a los {t10:.1f} años")
+            return es.indicador("Vida hasta 10 % de pérdida", f"{t10 - proy.edad_anios:.1f}",
+                                "años", col=col, detalle=f"Ocurre a los {t10:.1f} años")
         a10 = proy.alfa_umbral.get(modelo.UMBRAL_PREVENTIVO)
         return es.indicador("Daño para 10 % de pérdida",
                             f"{a10:.2f}" if a10 is not None else "—", "α", col=col,
@@ -400,8 +402,8 @@ class VistaCalculo:
 
         filas = [ft.DataRow(cells=[
             ft.DataCell(ft.Text(f["propiedad"])), ft.DataCell(ft.Text(f["unidad"])),
-            ft.DataCell(ft.Text(f"{f['ideal']:.6g}")),
-            ft.DataCell(ft.Text(f"{f['modificada']:.6g}")),
+            ft.DataCell(ft.Text(reporte.formatear(f["ideal"]))),
+            ft.DataCell(ft.Text(reporte.formatear(f["modificada"]))),
             ft.DataCell(celda_variacion(f)),
         ]) for f in r.filas_tabla()]
         tabla = ft.DataTable(heading_row_color=es.PRIMARIO_CLARO, column_spacing=28, rows=filas,

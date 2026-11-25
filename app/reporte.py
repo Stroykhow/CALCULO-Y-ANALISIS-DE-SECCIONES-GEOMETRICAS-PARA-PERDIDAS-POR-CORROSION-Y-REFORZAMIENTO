@@ -16,8 +16,16 @@ PLANTILLA = RAIZ / "plantillas" / "memoria.docx"
 CARPETA_REPORTES = RAIZ / "reportes"
 
 
-def _fmt(valor, decimales=6):
+def formatear(valor, decimales=6):
+    """Número con cifras significativas; los restos numéricos (|v| < 1e-12) se muestran como 0."""
     return f"{valor:.{decimales}g}" if abs(valor) >= 1e-12 else "0"
+
+
+def _remanente(t, edad):
+    """Años que faltan para el umbral, o «Ya superado» si la sección ya lo pasó."""
+    if t is None:
+        return "—"
+    return f"{t - edad:.1f}" if t > edad else "Ya superado"
 
 
 def datos_flexion_de(calculo):
@@ -164,8 +172,8 @@ def contexto_memoria(calculo, resultado, autores=""):
         for c in resultado.ideal_param
     ]
     propiedades = [
-        dict(propiedad=f["propiedad"], unidad=f["unidad"], ideal=_fmt(f["ideal"]),
-             modificada=_fmt(f["modificada"]), diferencia=_fmt(f["diferencia"]),
+        dict(propiedad=f["propiedad"], unidad=f["unidad"], ideal=formatear(f["ideal"]),
+             modificada=formatear(f["modificada"]), diferencia=formatear(f["diferencia"]),
              variacion=f"{f['variacion']:+.2f}" if f["clave"] not in ("xc", "ixy") else "—")
         for f in resultado.filas_tabla()
     ]
@@ -178,7 +186,7 @@ def contexto_memoria(calculo, resultado, autores=""):
             umbral=f"{umbral:.0f} %",
             alfa=f"{a:.3f}" if a is not None else "No se alcanza",
             tiempo=f"{t:.1f}" if t is not None else "—",
-            remanente=(f"{t - proy.edad_anios:.1f}" if t is not None else "—"),
+            remanente=_remanente(t, proy.edad_anios),
         ))
 
     if resultado.perdida_zx < 0:
