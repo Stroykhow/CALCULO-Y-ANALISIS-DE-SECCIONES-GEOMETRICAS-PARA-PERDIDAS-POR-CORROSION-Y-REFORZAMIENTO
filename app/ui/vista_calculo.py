@@ -2,14 +2,16 @@
 
 Diseño responsive: en pantallas anchas el formulario queda a la izquierda y los
 resultados a la derecha; en pantallas angostas se apilan uno debajo del otro.
-La parte de flexión (acero, cargas y chequeo φMn ≥ Mu) está en ``panel_flexion.py``.
+La flexión (acero, cargas y φMn ≥ Mu) está en ``panel_flexion.py`` y la revisión
+por estaciones (flexión y cortante a lo largo de la viga) en ``panel_estaciones.py``.
 """
 
 import flet as ft
 
-from app import db, flexion, graficas, modelo
+from app import db, estaciones, flexion, graficas, modelo, reporte
 from app.ui import estilos as es
 from app.ui.compat import AJUSTE_CONTENER, _acepta, avisar, boton, imagen_png
+from app.ui.panel_estaciones import PanelEstaciones, resultados_estaciones
 from app.ui.panel_flexion import PanelFlexion, resultados_flexion
 from app.ui.utilidades import generar_y_abrir_memoria
 from app.validacion import leer_numero
@@ -58,6 +60,7 @@ class VistaCalculo:
         self.filas_cotas = ft.Column(spacing=6)
         self._crear_campos()
         self.flexion = PanelFlexion(page)
+        self.estaciones = PanelEstaciones(page, lambda: self.flexion.txt_luz.value)
 
         self.panel_resultados = ft.Column(spacing=16, col={"xs": 12, "lg": 7, "xl": 8})
         self._mostrar_vacio()
@@ -90,6 +93,7 @@ class VistaCalculo:
             es.etiqueta_seccion("Proyección en el tiempo", suave),
             self.txt_edad,
             self.flexion.control,
+            self.estaciones.control,
             *self._botones(),
             col={"xs": 12, "lg": 5, "xl": 4},
             bgcolor=es.FONDO_ENTRADA, color_borde=es.BORDE_ENTRADA, sombra="#4027B0F5",
@@ -192,6 +196,7 @@ class VistaCalculo:
             )
 
         datos_flexion = self.flexion.leer(errores)
+        revision = self.estaciones.leer(errores) if datos_flexion else None
 
         self.page.update()
 
@@ -207,7 +212,7 @@ class VistaCalculo:
             )
             return None
 
-        return valores["ideal"], valores["mod"], edad, datos_flexion
+        return valores["ideal"], valores["mod"], edad, datos_flexion, revision
 
     # ------------------------------------------------------------------ acciones
     def calcular(self):
@@ -215,9 +220,10 @@ class VistaCalculo:
         entradas = self._leer_entradas()
         if entradas is None:
             return None
-        ideal, mod, edad, datos_flexion = entradas
+        ideal, mod, edad, datos_flexion, revision = entradas
         try:
-            self.resultado = modelo.comparar(self.tipo, ideal, mod, edad, datos_flexion)
+            self.resultado = modelo.comparar(self.tipo, ideal, mod, edad, datos_flexion,
+                                             revision)
         except ValueError as error:
             avisar(self.page, f"Datos no válidos: {error}", error=True)
             return None
@@ -262,6 +268,8 @@ class VistaCalculo:
         self._crear_campos(modelo.EJEMPLO["ideal"], modelo.EJEMPLO["modificada"])
         self.txt_edad.value = f"{modelo.EJEMPLO['edad_anios']:g}"
         self.flexion.llenar(flexion.EJEMPLO)
+        self.estaciones.llenar(estaciones.EJEMPLO_ESTRIBOS,
+                               estaciones.ejemplo_estaciones(flexion.EJEMPLO.luz))
         self.txt_proyecto.value = self.txt_proyecto.value or "Puente ejemplo"
         self.txt_nombre.value = self.txt_nombre.value or "Viga exterior - inspección"
         self.calculo_id = None
@@ -272,6 +280,7 @@ class VistaCalculo:
         for campo in (self.txt_edad, self.txt_nombre):
             campo.value, campo.error_text = "", None
         self.flexion.limpiar()
+        self.estaciones.limpiar()
         self.calculo_id = None
         self._mostrar_vacio()
         self.page.update()
@@ -288,11 +297,9 @@ class VistaCalculo:
         self.txt_nombre.value = calculo["nombre"]
         edad = calculo.get("edad_anios")
         self.txt_edad.value = f"{edad:g}" if edad else ""
-        datos = None
-        if calculo.get("datos_flexion") and calculo.get("capas"):
-            datos = flexion.DatosFlexion.desde_diccionario(calculo["datos_flexion"],
-                                                          calculo["capas"])
-        self.flexion.llenar(datos)
+        self.flexion.llenar(reporte.datos_flexion_de(calculo))
+        revision = reporte.revision_de(calculo)
+        self.estaciones.llenar(*(revision or (None, None)))
         if self.calcular():
             self.calculo_id = calculo["id"]
 
@@ -305,12 +312,14 @@ class VistaCalculo:
             "o use «Cargar ejemplo» para ver un caso completo.")]
 
     def _mostrar_resultados(self):
-        """Arma el panel derecho: flexión (si se evaluó), geometría, gráficas y tabla."""
+        """Arma el panel derecho: flexión y estaciones (si se evaluaron), geometría y tablas."""
         r = self.resultado
         antes, despues = resultados_flexion(r.flexion) if r.flexion else ([], [])
+        por_estaciones = resultados_estaciones(r.estaciones) if r.estaciones else []
         self.panel_resultados.controls = [
-            *antes, self._aviso_geometrico(r), self._indicadores_geometricos(r),
-            *despues, self._figuras(r), self._tabla_comparativa(r),
+            *antes, *por_estaciones[:1], self._aviso_geometrico(r),
+            self._indicadores_geometricos(r), *despues, *por_estaciones[1:],
+            self._figuras(r), self._tabla_comparativa(r),
         ]
         self.page.update()
 

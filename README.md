@@ -47,6 +47,8 @@ preguntas:
    10 % y del 25 %, y cuánta vida remanente queda?
 4. **A flexión (NSR-10):** con el refuerzo corroído, ¿la viga cumple **φMn ≥ Mu**? ¿Cuánta
    resistencia perdió y en qué año dejaría de cumplir?
+5. **A lo largo del puente:** con el daño medido en cada estación (por ejemplo, cada metro),
+   ¿dónde está la **sección crítica** y falla por **flexión** o por **cortante**?
 
 Secciones disponibles: **viga Bulb-Tee** (14 cotas) y **sección rectangular** (losa o tablero).
 
@@ -121,7 +123,28 @@ en c, y por eso brentq siempre encuentra una única raíz entre c ≈ 0 y c = h/
 proyección, el concreto y el acero se degradan juntos con el nivel de daño α, y brentq
 encuentra el α en que φMn(α) = Mu(α), es decir, **el año en que la viga deja de cumplir**.
 
-### 2.4 Validación
+### 2.4 Revisión por estaciones: flexión y cortante a lo largo de la viga
+
+La corrosión no es uniforme: suele ser peor junto a juntas, drenajes y apoyos. En cada
+estación x se usa el daño medido ahí: la sección dañada (cotas inspeccionadas) o sana, el
+% de pérdida del acero longitudinal y el % de pérdida de los estribos.
+
+```
+Mu(x) = wu·x·(L − x)/2           Vu(x) = wu·|L/2 − x|           (viga simplemente apoyada)
+Vc = 0.17·√f'c·bw·d              (NSR-10 C.11.2.1.1)
+Vs = Av·fyt·d/s ≤ 0.66·√f'c·bw·d (NSR-10 C.11.4.7.2 y C.11.4.7.9), Av reducida por corrosión
+φVn = 0.75·(Vc + Vs)             Chequeo: φMn ≥ Mu(x)  y  φVn ≥ Vu(x)
+```
+
+Mu, Vu y φVn se calculan con NumPy para todas las estaciones a la vez. φMn exige el
+equilibrio de la sección con brentq, por eso se calcula una vez por cada combinación de
+sección y pérdida de acero, y se reutiliza. La estación crítica es la de mayor relación
+demanda/resistencia. wu usa el peso propio de la sección de diseño en toda la luz.
+
+En el ejemplo, la junta con filtración (x = 1 a 3 m, estribos con 45 % de pérdida) **falla por
+cortante** (D/R = 1.40 en x = 1 m), aunque el centro de la luz todavía cumple a flexión.
+
+### 2.5 Validación
 
 `tests/test_modelo.py` compara el modelo con casos resueltos a mano:
 
@@ -136,6 +159,8 @@ encuentra el α en que φMn(α) = Mu(α), es decir, **el año en que la viga dej
 | Bulb-Tee con el bloque en la aleta superior | Mn = T·(d − a/2), con a = T/(0.85·f'c·b1) | igual |
 | 20 % menos de acero | Mn' / Mn = 0.8·(d − 0.8a/2)/(d − a/2) | igual |
 | β1 y φ | tablas de NSR-10 C.10.2.7.3 y C.9.3.2 | igual |
+| Cortante, viga 30 × 50 cm, d = 44 cm, f'c = 28, Ø9.5 de 2 ramas cada 15 cm | Vc = 118.7 kN, Vs = 174.7 kN, φVn = 220.0 kN | igual |
+| Bulb-Tee del ejemplo en el apoyo | φVn = 0.75·(227.8 + 449.5) = 508.0 kN | igual |
 
 **Unidades:** longitudes en m (diámetros de barras en mm), áreas en m² (acero en mm²),
 módulos resistentes en m³, inercias en m⁴, esfuerzos en MPa, cargas en kN/m, momentos en
@@ -190,6 +215,12 @@ Para regenerar la memoria de ejemplo: `python herramientas/generar_ejemplo.py "A
    - la geometría y la proyección de la capacidad, que incluye φMn y Mu en el tiempo;
    - las tablas.
 
+   Para revisar la viga a lo largo de la luz, marque **Revisar por estaciones**, escriba los
+   **estribos** (Ø, ramas, separación y fyt), pulse **Generar estaciones** (con el paso en m)
+   y escriba en cada estación si la sección está **dañada** y el % de pérdida de acero y de
+   estribos medido. Verá la estación crítica, la gráfica de resistencia frente a demanda a
+   lo largo de la viga y la tabla por estación.
+
    Los campos vacíos, con letras o con valores negativos se marcan en rojo, y los datos
    imposibles se informan con un mensaje, sin que la aplicación se cierre.
 6. Pulse **Guardar en historial** para guardar el cálculo en SQLite.
@@ -208,14 +239,16 @@ Para regenerar la memoria de ejemplo: `python herramientas/generar_ejemplo.py "A
 │   ├── sections.py          # pysections (Proyecto 01), sin modificar: genera la geometría
 │   ├── modelo.py            # cálculo vectorizado (NumPy) + proyección (SciPy brentq), sin Flet
 │   ├── flexion.py           # flexión NSR-10: Whitney sobre el polígono, Mu, φMn, corrosión
+│   ├── estaciones.py        # revisión a lo largo de la viga: Mu(x), Vu(x), φMn, φVn
 │   ├── validacion.py        # lectura y validación de campos numéricos
-│   ├── db.py                # SQLite: proyectos 1─N calculos 1─N capas_acero
+│   ├── db.py                # SQLite: proyectos 1─N calculos 1─N capas_acero / estaciones
 │   ├── graficas.py          # figuras de Matplotlib (las mismas en la app y en la memoria)
 │   ├── reporte.py           # memoria de cálculo con docxtpl
 │   └── ui/
 │       ├── app.py           # ventana y navegación
 │       ├── vista_calculo.py # formulario, resultados y gráficas
 │       ├── panel_flexion.py # datos de acero y cargas, y resultados a flexión
+│       ├── panel_estaciones.py # estribos, tabla de estaciones y sus resultados
 │       ├── vista_historial.py # listar, buscar, reabrir, memoria, eliminar
 │       ├── estilos.py       # paleta y componentes visuales (tarjetas, indicadores)
 │       ├── utilidades.py
@@ -224,7 +257,7 @@ Para regenerar la memoria de ejemplo: `python herramientas/generar_ejemplo.py "A
 ├── herramientas/
 │   ├── crear_plantilla.py   # regenera la plantilla
 │   └── generar_ejemplo.py   # regenera ejemplos/memoria_ejemplo.docx
-├── tests/                   # pytest: modelo, flexión, base de datos y reporte
+├── tests/                   # pytest: modelo, flexión, estaciones, base de datos y reporte
 └── ejemplos/
     ├── memoria_ejemplo.docx
     └── capturas/
@@ -237,9 +270,12 @@ proyectos(id PK, nombre UNIQUE, descripcion, creado)
 calculos(id PK, proyecto_id FK → proyectos.id ON DELETE CASCADE, nombre, tipo_seccion,
          param_ideal JSON, param_mod JSON, edad_anios, area_ideal, area_mod,
          zx_ideal, zx_mod, perdida_zx, severidad, dictamen, creado,
-         datos_flexion JSON, mu, phi_mn_ideal, phi_mn_mod, cumple_flexion)
+         datos_flexion JSON, mu, phi_mn_ideal, phi_mn_mod, cumple_flexion,
+         datos_estribos JSON, x_critico, relacion_max, cumple_estaciones)
 capas_acero(id PK, calculo_id FK → calculos.id ON DELETE CASCADE, orden, n_barras,
             diametro_mm, y_m)
+estaciones(id PK, calculo_id FK → calculos.id ON DELETE CASCADE, x_m, danada,
+           perdida_acero, perdida_estribos)
 ```
 
 Si se abre una base creada con la versión anterior, `db.conectar()` agrega sola las

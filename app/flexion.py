@@ -236,10 +236,14 @@ def _demanda(area, datos):
     return peso, wu, mu
 
 
+def ancho_alma(tipo, p):
+    """bw (m): ancho del alma que resiste el cortante (el menor espesor en la Bulb-Tee)."""
+    return p["width"] if tipo == "rectangular" else min(p["t1"], p["t2"])
+
+
 def _acero_minimo(tipo, p, fc, fy, d_efectivo):
     """As,mín (m²) = máx(0.25·√f'c, 1.4)/fy · bw · d   (NSR-10 C.10.5.1)."""
-    bw = p["width"] if tipo == "rectangular" else min(p["t1"], p["t2"])
-    return max(0.25 * math.sqrt(fc), 1.4) / fy * bw * d_efectivo
+    return max(0.25 * math.sqrt(fc), 1.4) / fy * ancho_alma(tipo, p) * d_efectivo
 
 
 def evaluar_flexion(tipo, parametros, datos, factor_acero=1.0):

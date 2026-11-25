@@ -211,8 +211,34 @@ def crear(ruta):
     leyenda.runs[0].italic = True
     doc.add_paragraph("{{ flex_vida }}")
 
-    doc.add_heading("7. Chequeo y conclusión", level=1)
-    resumen = doc.add_table(rows=7, cols=2)
+    doc.add_heading("7. Revisión por estaciones: flexión y cortante (NSR-10)", level=1)
+    doc.add_paragraph("{{ est_estado }}")
+    doc.add_paragraph(
+        "En cada estación x se compara la demanda de la viga simplemente apoyada con la "
+        "resistencia de la sección de esa estación, con el acero longitudinal y los estribos "
+        "reducidos según la corrosión medida:")
+    ecuacion(doc, "Mu(x) = wu·x·(L − x)/2          Vu(x) = wu·|L/2 − x|")
+    ecuacion(doc, "Vc = 0.17·√f'c·bw·d          Vs = Av·fyt·d/s ≤ 0.66·√f'c·bw·d          "
+                  "φVn = 0.75·(Vc + Vs)")
+    ecuacion(doc, "Chequeo en cada estación: φMn ≥ Mu(x)  y  φVn ≥ Vu(x)")
+    tabla_con_bucle(doc, ["Dato", "Unidad", "Valor"], "est_estribos", "x",
+                    ["dato", "unidad", "valor"], anchos=[9.0, 2.5, 4.0])
+    tabla_con_bucle(doc, ["x (m)", "Sección", "Pérd. acero (%)", "Pérd. estribos (%)",
+                          "Mu (kN·m)", "φMn (kN·m)", "Vu (kN)", "φVn (kN)", "D/R", "Chequeo"],
+                    "est_filas", "e",
+                    ["x", "seccion", "acero", "estribos", "mu", "phi_mn", "vu", "phi_vn",
+                     "relacion", "cumple"],
+                    anchos=[1.2, 1.5, 1.5, 1.6, 1.8, 1.8, 1.6, 1.6, 1.1, 2.0])
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.add_run("{{ grafica_estaciones }}")
+    leyenda = doc.add_paragraph("Figura 4. Resistencia frente a demanda a lo largo de la viga.")
+    leyenda.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    leyenda.runs[0].italic = True
+    doc.add_paragraph("{{ est_resumen }}")
+
+    doc.add_heading("8. Chequeo y conclusión", level=1)
+    resumen = doc.add_table(rows=8, cols=2)
     resumen.style = "Table Grid"
     for fila, (etiqueta, valor) in zip(resumen.rows, [
         ("Pérdida de área", "{{ perdida_area }} %"),
@@ -222,6 +248,7 @@ def crear(ruta):
         ("Dictamen", "{{ dictamen }}"),
         ("Alerta de deterioro: ¿Zx,mod ≥ 0.90 · Zx,ideal?", "{{ chequeo }}"),
         ("Chequeo a flexión φMn ≥ Mu (sección inspeccionada)", "{{ flex_chequeo }}"),
+        ("Revisión por estaciones (flexión y cortante)", "{{ est_chequeo }}"),
     ]):
         fila.cells[0].text = ""
         fila.cells[0].paragraphs[0].add_run(etiqueta).bold = True
@@ -230,7 +257,7 @@ def crear(ruta):
     doc.add_paragraph("{{ conclusion }}")
     doc.add_paragraph("{{ flex_conclusion }}")
 
-    doc.add_heading("8. Referencias", level=1)
+    doc.add_heading("9. Referencias", level=1)
     for ref in [
         "Gere, J. M., & Goodno, B. J. (2013). Mecánica de materiales (8.ª ed.). Cengage Learning.",
         "Steger, C. (1996). On the calculation of arbitrary moments of polygons. "

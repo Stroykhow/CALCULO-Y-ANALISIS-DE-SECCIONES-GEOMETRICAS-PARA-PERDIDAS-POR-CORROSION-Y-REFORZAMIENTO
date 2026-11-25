@@ -62,7 +62,8 @@ class VistaHistorial:
                 columns=[ft.DataColumn(ft.Text(t, weight=ft.FontWeight.W_600)) for t in (
                     "Id", "Proyecto", "Cálculo", "Sección", "A ideal (m²)", "A mod (m²)",
                     "Zx ideal (m³)", "Zx mod (m³)", "Pérdida Zx (%)", "Severidad",
-                    "φMn mod (kN·m)", "Mu (kN·m)", "Flexión", "Fecha", "Acciones")],
+                    "φMn mod (kN·m)", "Mu (kN·m)", "Flexión", "Estación crítica",
+                    "Fecha", "Acciones")],
                 rows=[self._fila(c) for c in calculos],
             )
             self.contenido.controls = [es.tarjeta(
@@ -94,6 +95,7 @@ class VistaHistorial:
                                 weight=ft.FontWeight.W_600)),
             ft.DataCell(es.chip(c["severidad"], color, fondo)),
             *self._celdas_flexion(c),
+            self._celda_estaciones(c),
             ft.DataCell(ft.Text(c["creado"].replace("T", " ")[:16], color=es.TEXTO_SUAVE)),
             ft.DataCell(acciones),
         ]
@@ -109,6 +111,15 @@ class VistaHistorial:
         return [ft.DataCell(ft.Text(f"{c['phi_mn_mod']:,.0f}")),
                 ft.DataCell(ft.Text(f"{c['mu']:,.0f}")),
                 ft.DataCell(es.chip("CUMPLE" if cumple else "NO CUMPLE", color, fondo))]
+
+    @staticmethod
+    def _celda_estaciones(c):
+        """x crítico y demanda/resistencia, o un guion si no se revisó por estaciones."""
+        if c.get("x_critico") is None:
+            return ft.DataCell(ft.Text("—", color=es.TEXTO_SUAVE))
+        color, fondo, _ = es.SEVERIDAD["VERDE" if c["cumple_estaciones"] else "ROJO"]
+        return ft.DataCell(es.chip(f"x = {c['x_critico']:g} m · {c['relacion_max']:.2f}",
+                                   color, fondo))
 
     def _abrir(self, calculo_id):
         calculo = db.obtener_calculo(self.conexion, calculo_id)

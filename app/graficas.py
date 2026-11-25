@@ -205,6 +205,57 @@ def _dibujar_deformaciones(ax, r, tema):
     ax.legend(loc="center right", fontsize=7)
 
 
+def figura_estaciones(revision, oscuro=False):
+    """Resistencia frente a demanda a lo largo de la viga: flexión arriba, cortante abajo."""
+    with rc_context(TEMAS[oscuro]["rc"]):
+        return _figura_estaciones(revision, TEMAS[oscuro])
+
+
+def _figura_estaciones(rev, tema):
+    from app.estaciones import demanda
+
+    fig = Figure(figsize=(7.6, 6.2), dpi=110, layout="constrained")
+    ax_m, ax_v = fig.subplots(2, 1, sharex=True)
+    x_fino = np.linspace(0, rev.luz, 300)
+    mu_fino, vu_fino = demanda(x_fino, rev.wu, rev.luz)
+    for ax, demanda_fina, resistencia, demanda_est, nombre, unidad in (
+        (ax_m, mu_fino, rev.phi_mn, rev.mu, "M", "kN·m"),
+        (ax_v, vu_fino, rev.phi_vn, rev.vu, "V", "kN"),
+    ):
+        _sombrear_danos(ax, rev, tema)
+        ax.plot(x_fino, demanda_fina, color=tema["demanda"], linewidth=1.6,
+                label=f"Demanda {nombre}u")
+        ax.plot(rev.x, resistencia, color=tema["resistencia"], linewidth=1.8,
+                drawstyle="steps-mid", marker="o", markersize=3.5,
+                label=f"Resistencia φ{nombre}n por estación")
+        falla = demanda_est > resistencia
+        if falla.any():
+            ax.plot(rev.x[falla], demanda_est[falla], "X", color=tema["demanda"], markersize=9,
+                    zorder=6, label="Estación que no cumple")
+        ax.set_ylabel(f"{nombre} ({unidad})")
+        ax.set_ylim(bottom=0)
+        ax.legend(loc="best", fontsize=7)
+
+    i = rev.indice_critico
+    ax_m.set_title(f"Estación crítica x = {rev.x[i]:g} m · demanda/resistencia = "
+                   f"{rev.relacion[i]:.2f}")
+    ax_v.set_xlabel("Posición a lo largo de la viga x (m)")
+    ax_v.set_xlim(0, rev.luz)
+    return fig
+
+
+def _sombrear_danos(ax, rev, tema):
+    """Franja de color detrás de las estaciones con la sección dañada."""
+    paso = np.min(np.diff(rev.x)) if len(rev.x) > 1 else rev.luz
+    primera = True
+    for e in rev.estaciones:
+        if e.danada:
+            ax.axvspan(max(e.x - paso / 2, 0), min(e.x + paso / 2, rev.luz),
+                       color=tema["severidad"]["NARANJA"], alpha=0.12, linewidth=0,
+                       label="Sección dañada" if primera else None)
+            primera = False
+
+
 def figura_a_png(figura):
     """Convierte una figura en bytes PNG."""
     buffer = io.BytesIO()

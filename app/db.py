@@ -6,15 +6,18 @@ La base de datos se crea sola la primera vez (CREATE TABLE IF NOT EXISTS).
 Esquema
 -------
 proyectos (1) ──< calculos (N) ──< capas_acero (N)
+                                └─< estaciones  (N)
     calculos.proyecto_id   → proyectos.id
     capas_acero.calculo_id → calculos.id
+    estaciones.calculo_id  → calculos.id
 
 Las bases creadas con versiones anteriores se actualizan solas: ``conectar``
-agrega las columnas de flexión que falten (ALTER TABLE ... ADD COLUMN).
+agrega las columnas que falten (ALTER TABLE ... ADD COLUMN).
 """
 
 import json
 import sqlite3
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
@@ -58,15 +61,32 @@ CREATE TABLE IF NOT EXISTS capas_acero (
 );
 
 CREATE INDEX IF NOT EXISTS idx_capas_calculo ON capas_acero(calculo_id);
+
+CREATE TABLE IF NOT EXISTS estaciones (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    calculo_id        INTEGER NOT NULL REFERENCES calculos(id) ON DELETE CASCADE,
+    x_m               REAL    NOT NULL,     -- distancia al apoyo izquierdo
+    danada            INTEGER NOT NULL,     -- 1: usa las cotas de la sección inspeccionada
+    perdida_acero     REAL    NOT NULL,     -- %
+    perdida_estribos  REAL    NOT NULL      -- %
+);
+
+CREATE INDEX IF NOT EXISTS idx_estaciones_calculo ON estaciones(calculo_id);
 """
 
-# Columnas de flexión agregadas en la versión 2 (nombre, tipo SQL)
-COLUMNAS_FLEXION = [
+# Columnas agregadas después de la primera versión (nombre, tipo SQL)
+COLUMNAS_AGREGADAS = [
+    # versión 2: flexión
     ("datos_flexion", "TEXT"),         # JSON: f'c, fy, luz, cargas, pérdida de acero
     ("mu", "REAL"),                    # kN·m
     ("phi_mn_ideal", "REAL"),          # kN·m
     ("phi_mn_mod", "REAL"),            # kN·m
     ("cumple_flexion", "INTEGER"),     # 1 / 0 para la sección modificada
+    # versión 3: revisión por estaciones
+    ("datos_estribos", "TEXT"),        # JSON: diámetro, ramas, separación, fyt
+    ("x_critico", "REAL"),             # m, estación crítica
+    ("relacion_max", "REAL"),          # peor demanda / resistencia
+    ("cumple_estaciones", "INTEGER"),  # 1 si todas las estaciones cumplen
 ]
 
 
@@ -84,9 +104,9 @@ def conectar(ruta=None):
 
 
 def _migrar(conexion):
-    """Agrega a ``calculos`` las columnas de flexión que no existan todavía."""
+    """Agrega a ``calculos`` las columnas nuevas que no existan todavía."""
     existentes = {fila["name"] for fila in conexion.execute("PRAGMA table_info(calculos)")}
-    for nombre, tipo in COLUMNAS_FLEXION:
+    for nombre, tipo in COLUMNAS_AGREGADAS:
         if nombre not in existentes:
             # nombre y tipo vienen de la constante de arriba, nunca del usuario
             conexion.execute(f"ALTER TABLE calculos ADD COLUMN {nombre} {tipo}")
@@ -113,19 +133,32 @@ def obtener_o_crear_proyecto(conexion, nombre, descripcion=""):
     return cursor.lastrowid
 
 
+def _valores_flexion(resultado):
+    """Columnas de flexión y de estaciones de un Resultado (None si no se evaluaron)."""
+    flex, est = resultado.flexion, resultado.estaciones
+    valores = [None] * 9
+    if flex:
+        valores[:5] = [json.dumps(flex.datos.a_diccionario()), flex.modificada.mu,
+                       flex.ideal.phi_mn, flex.modificada.phi_mn, int(flex.modificada.cumple)]
+    if est:
+        i = est.indice_critico
+        valores[5:] = [json.dumps(asdict(est.estribos)), float(est.x[i]),
+                       float(est.relacion[i]), int(est.cumple_todo)]
+    return valores
+
+
 def guardar_calculo(conexion, proyecto, nombre, resultado, edad_anios=None):
     """Guarda un ``modelo.Resultado`` dentro del proyecto indicado. Devuelve el id."""
     nombre = nombre.strip()
     if not nombre:
         raise ValueError("El nombre del cálculo es obligatorio")
     proyecto_id = obtener_o_crear_proyecto(conexion, proyecto)
-    flex = resultado.flexion
     cursor = conexion.execute(
         """INSERT INTO calculos (proyecto_id, nombre, tipo_seccion, param_ideal, param_mod,
                edad_anios, area_ideal, area_mod, zx_ideal, zx_mod, perdida_zx,
                severidad, dictamen, creado, datos_flexion, mu, phi_mn_ideal, phi_mn_mod,
-               cumple_flexion)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               cumple_flexion, datos_estribos, x_critico, relacion_max, cumple_estaciones)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             proyecto_id, nombre, resultado.tipo,
             json.dumps(resultado.ideal_param), json.dumps(resultado.mod_param),
@@ -133,14 +166,17 @@ def guardar_calculo(conexion, proyecto, nombre, resultado, edad_anios=None):
             resultado.ideal["area"], resultado.modificada["area"],
             resultado.ideal["zx_crit"], resultado.modificada["zx_crit"],
             resultado.perdida_zx, resultado.severidad, resultado.dictamen, _ahora(),
-            json.dumps(flex.datos.a_diccionario()) if flex else None,
-            flex.modificada.mu if flex else None,
-            flex.ideal.phi_mn if flex else None,
-            flex.modificada.phi_mn if flex else None,
-            int(flex.modificada.cumple) if flex else None,
+            *_valores_flexion(resultado),
         ),
     )
     calculo_id = cursor.lastrowid
+    _guardar_capas(conexion, calculo_id, resultado.flexion)
+    _guardar_estaciones(conexion, calculo_id, resultado.estaciones)
+    conexion.commit()
+    return calculo_id
+
+
+def _guardar_capas(conexion, calculo_id, flex):
     if flex:
         conexion.executemany(
             """INSERT INTO capas_acero (calculo_id, orden, n_barras, diametro_mm, y_m)
@@ -148,13 +184,21 @@ def guardar_calculo(conexion, proyecto, nombre, resultado, edad_anios=None):
             [(calculo_id, i, c.n_barras, c.diametro_mm, c.y)
              for i, c in enumerate(flex.datos.capas)],
         )
-    conexion.commit()
-    return calculo_id
+
+
+def _guardar_estaciones(conexion, calculo_id, est):
+    if est:
+        conexion.executemany(
+            """INSERT INTO estaciones (calculo_id, x_m, danada, perdida_acero, perdida_estribos)
+               VALUES (?, ?, ?, ?, ?)""",
+            [(calculo_id, e.x, int(e.danada), e.perdida_acero, e.perdida_estribos)
+             for e in est.estaciones],
+        )
 
 
 def _a_diccionario(fila):
     datos = dict(fila)
-    for clave in ("param_ideal", "param_mod", "datos_flexion"):
+    for clave in ("param_ideal", "param_mod", "datos_flexion", "datos_estribos"):
         if datos.get(clave):
             datos[clave] = json.loads(datos[clave])
     return datos
@@ -165,6 +209,16 @@ def listar_capas(conexion, calculo_id):
     filas = conexion.execute(
         """SELECT n_barras, diametro_mm, y_m AS y FROM capas_acero
            WHERE calculo_id = ? ORDER BY orden""",
+        (calculo_id,),
+    ).fetchall()
+    return [dict(f) for f in filas]
+
+
+def listar_estaciones(conexion, calculo_id):
+    """Estaciones de un cálculo, ordenadas por x."""
+    filas = conexion.execute(
+        """SELECT x_m AS x, danada, perdida_acero, perdida_estribos FROM estaciones
+           WHERE calculo_id = ? ORDER BY x_m""",
         (calculo_id,),
     ).fetchall()
     return [dict(f) for f in filas]
@@ -195,6 +249,7 @@ def obtener_calculo(conexion, calculo_id):
         return None
     calculo = _a_diccionario(fila)
     calculo["capas"] = listar_capas(conexion, calculo_id)
+    calculo["estaciones"] = listar_estaciones(conexion, calculo_id)
     return calculo
 
 

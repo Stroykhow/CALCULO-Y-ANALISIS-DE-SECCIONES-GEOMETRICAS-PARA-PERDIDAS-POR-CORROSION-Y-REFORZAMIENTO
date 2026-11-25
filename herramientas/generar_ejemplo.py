@@ -12,7 +12,7 @@ matplotlib.use("Agg")
 RAIZ = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RAIZ))
 
-from app import flexion, modelo, reporte  # noqa: E402
+from app import estaciones, flexion, modelo, reporte  # noqa: E402
 
 calculo = dict(
     id=1, proyecto="Puente ejemplo", nombre="Viga exterior - inspección",
@@ -21,6 +21,10 @@ calculo = dict(
     datos_flexion=flexion.EJEMPLO.a_diccionario(),
     capas=[dict(n_barras=c.n_barras, diametro_mm=c.diametro_mm, y=c.y)
            for c in flexion.EJEMPLO.capas],
+    datos_estribos=estaciones.estribos_a_diccionario(estaciones.EJEMPLO_ESTRIBOS),
+    estaciones=[dict(x=e.x, danada=e.danada, perdida_acero=e.perdida_acero,
+                     perdida_estribos=e.perdida_estribos)
+                for e in estaciones.ejemplo_estaciones(flexion.EJEMPLO.luz)],
 )
 autores = sys.argv[1] if len(sys.argv) > 1 else ""
 ruta = reporte.generar_memoria(calculo, RAIZ / "ejemplos" / "memoria_ejemplo.docx", autores)

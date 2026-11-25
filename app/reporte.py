@@ -9,7 +9,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-from app import flexion, graficas, modelo
+from app import estaciones, flexion, graficas, modelo
 
 RAIZ = Path(__file__).resolve().parent.parent
 PLANTILLA = RAIZ / "plantillas" / "memoria.docx"
@@ -27,11 +27,19 @@ def datos_flexion_de(calculo):
     return None
 
 
+def revision_de(calculo):
+    """(estribos, estaciones) de un cálculo guardado, o None si no se revisó por estaciones."""
+    if calculo.get("datos_estribos") and calculo.get("estaciones"):
+        return (estaciones.estribos_desde_diccionario(calculo["datos_estribos"]),
+                estaciones.estaciones_desde_filas(calculo["estaciones"]))
+    return None
+
+
 def recalcular(calculo):
     """Reconstruye el ``Resultado`` a partir de un cálculo guardado en SQLite."""
     return modelo.comparar(calculo["tipo_seccion"], calculo["param_ideal"],
                            calculo["param_mod"], calculo.get("edad_anios"),
-                           datos_flexion_de(calculo))
+                           datos_flexion_de(calculo), revision_de(calculo))
 
 
 # (nombre, unidad, valor a partir de un ResultadoFlexion, formato) de la tabla de resultados
@@ -114,6 +122,35 @@ def _contexto_flexion(resultado):
     )
 
 
+def _contexto_estaciones(resultado):
+    """Variables de la sección de revisión por estaciones de la plantilla."""
+    rev = resultado.estaciones
+    if rev is None:
+        return dict(est_estado="No se revisó la viga por estaciones en este cálculo.",
+                    est_estribos=[], est_filas=[], est_resumen="—", est_chequeo="No evaluado")
+    e = rev.estribos
+    estribos = [("Diámetro del estribo", "mm", f"{e.diametro_mm:g}"),
+                ("Número de ramas", "-", f"{e.ramas}"),
+                ("Área por estribo Av", "mm²", f"{e.area_mm2:,.1f}"),
+                ("Separación s", "m", f"{e.separacion:g}"),
+                ("Fluencia fyt", "MPa", f"{e.fyt:g}"),
+                ("Carga última wu (peso propio de la sección de diseño)", "kN/m", f"{rev.wu:.2f}")]
+    filas = [dict(x=f"{f['x']:g}", seccion="Dañada" if f["danada"] else "Sana",
+                  acero=f"{f['perdida_acero']:g}", estribos=f"{f['perdida_estribos']:g}",
+                  mu=f"{f['mu']:,.1f}", phi_mn=f"{f['phi_mn']:,.1f}", vu=f"{f['vu']:,.1f}",
+                  phi_vn=f"{f['phi_vn']:,.1f}", relacion=f"{f['relacion']:.2f}",
+                  cumple="CUMPLE" if f["cumple"] else "NO CUMPLE")
+             for f in rev.filas()]
+    return dict(
+        est_estado=(f"Se revisaron {len(filas)} estaciones a lo largo de la luz de "
+                    f"{rev.luz:g} m, cada una con el daño medido en la inspección."),
+        est_estribos=[dict(dato=a, unidad=b, valor=c) for a, b, c in estribos],
+        est_filas=filas, est_resumen=rev.resumen(),
+        est_chequeo="CUMPLE en todas las estaciones" if rev.cumple_todo
+        else "NO CUMPLE en alguna estación",
+    )
+
+
 def contexto_memoria(calculo, resultado, autores=""):
     """Diccionario con todas las variables de la plantilla (sin imágenes)."""
     proy = resultado.proyeccion
@@ -171,6 +208,7 @@ def contexto_memoria(calculo, resultado, autores=""):
                  else "No, supera el 10 %: requiere revisar la capacidad"),
         conclusion=conclusion,
         **_contexto_flexion(resultado),
+        **_contexto_estaciones(resultado),
     )
 
 
@@ -200,6 +238,11 @@ def generar_memoria(calculo, ruta_salida=None, autores=""):
             img_flex = graficas.guardar_figura(
                 graficas.figura_flexion(resultado.flexion.modificada), Path(tmp) / "flexion.png")
             contexto["grafica_flexion"] = InlineImage(plantilla, str(img_flex), width=Mm(160))
+        contexto["grafica_estaciones"] = ""
+        if resultado.estaciones is not None:
+            img_est = graficas.guardar_figura(graficas.figura_estaciones(resultado.estaciones),
+                                              Path(tmp) / "estaciones.png")
+            contexto["grafica_estaciones"] = InlineImage(plantilla, str(img_est), width=Mm(160))
         plantilla.render(contexto)
         plantilla.save(ruta_salida)
     return Path(ruta_salida)

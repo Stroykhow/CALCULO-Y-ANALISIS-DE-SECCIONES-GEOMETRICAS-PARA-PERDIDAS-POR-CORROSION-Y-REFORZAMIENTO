@@ -99,3 +99,21 @@ def test_migra_una_base_de_la_version_anterior(tmp_path):
     columnas = {f["name"] for f in con.execute("PRAGMA table_info(calculos)")}
     assert {"datos_flexion", "mu", "phi_mn_mod", "cumple_flexion"} <= columnas
     con.close()
+
+
+def test_guarda_y_reabre_las_estaciones(conexion):
+    from app import estaciones as est
+    from app import flexion as fx
+    from app import modelo
+    e = modelo.EJEMPLO
+    revision = (est.EJEMPLO_ESTRIBOS, est.ejemplo_estaciones())
+    r = modelo.comparar(e["tipo"], e["ideal"], e["modificada"], e["edad_anios"], fx.EJEMPLO,
+                        revision)
+    i = db.guardar_calculo(conexion, "Puente A", "Viga 1", r, e["edad_anios"])
+    calculo = db.obtener_calculo(conexion, i)
+    assert calculo["x_critico"] == pytest.approx(1.0)
+    assert calculo["cumple_estaciones"] == 0
+    assert est.estribos_desde_diccionario(calculo["datos_estribos"]) == est.EJEMPLO_ESTRIBOS
+    assert est.estaciones_desde_filas(calculo["estaciones"]) == revision[1]
+    db.eliminar_calculo(conexion, i)
+    assert conexion.execute("SELECT COUNT(*) FROM estaciones").fetchone()[0] == 0

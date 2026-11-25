@@ -47,3 +47,16 @@ def test_genera_docx(tmp_path):
     texto = "\n".join(p.text for p in Document(ruta).paragraphs)
     assert "{{" not in texto and "NARANJA" in texto
     assert len(Document(ruta).inline_shapes) == 3
+
+
+def test_contexto_de_estaciones():
+    from app import estaciones as est
+    calculo = _calculo()
+    calculo["datos_estribos"] = est.estribos_a_diccionario(est.EJEMPLO_ESTRIBOS)
+    calculo["estaciones"] = [dict(x=e.x, danada=e.danada, perdida_acero=e.perdida_acero,
+                                  perdida_estribos=e.perdida_estribos)
+                             for e in est.ejemplo_estaciones()]
+    contexto = reporte.contexto_memoria(calculo, reporte.recalcular(calculo))
+    assert len(contexto["est_filas"]) == 18
+    assert contexto["est_chequeo"].startswith("NO CUMPLE")
+    assert "x = 1 m" in contexto["est_resumen"]

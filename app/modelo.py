@@ -240,6 +240,7 @@ class Resultado:
     puntos_ideal: np.ndarray
     puntos_mod: np.ndarray
     flexion: object = None           # flexion.ComparacionFlexion, si se evaluó a flexión
+    estaciones: object = None        # estaciones.ResultadoEstaciones, si se revisó por estaciones
 
     @property
     def cumple(self):
@@ -333,11 +334,13 @@ def proyectar_degradacion(tipo, p_ideal, p_mod, edad_anios=None, n=200):
                       float(edad_anios) if edad_anios else None)
 
 
-def comparar(tipo, p_ideal, p_mod, edad_anios=None, datos_flexion=None):
+def comparar(tipo, p_ideal, p_mod, edad_anios=None, datos_flexion=None, revision=None):
     """Calcula todo el análisis ideal vs modificada y devuelve un ``Resultado``.
 
     Si se pasa ``datos_flexion`` (un ``flexion.DatosFlexion``), también evalúa
     la resistencia a flexión de las dos secciones y su proyección en el tiempo.
+    Si además se pasa ``revision = (estribos, estaciones)``, revisa flexión y
+    cortante a lo largo de la viga (módulo ``estaciones``).
     """
     p_ideal = validar_parametros(tipo, p_ideal)
     p_mod = validar_parametros(tipo, p_mod)
@@ -354,6 +357,10 @@ def comparar(tipo, p_ideal, p_mod, edad_anios=None, datos_flexion=None):
         from app.flexion import comparar_flexion   # import local: flexion usa este módulo
         resultado_flexion = comparar_flexion(tipo, p_ideal, p_mod, datos_flexion, edad_anios,
                                              alfa_max=float(proyeccion.alfa[-1]))
+    resultado_estaciones = None
+    if datos_flexion is not None and revision is not None:
+        from app.estaciones import evaluar_estaciones
+        resultado_estaciones = evaluar_estaciones(tipo, p_ideal, p_mod, datos_flexion, *revision)
     return Resultado(
         tipo=tipo, ideal_param=p_ideal, mod_param=p_mod, ideal=ideal, modificada=mod,
         perdida_area=float(perdidas[0]), perdida_ixx=float(perdidas[1]),
@@ -362,4 +369,5 @@ def comparar(tipo, p_ideal, p_mod, edad_anios=None, datos_flexion=None):
         puntos_ideal=construir_seccion(tipo, p_ideal).points,
         puntos_mod=construir_seccion(tipo, p_mod).points,
         flexion=resultado_flexion,
+        estaciones=resultado_estaciones,
     )
