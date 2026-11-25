@@ -34,75 +34,83 @@ def recalcular(calculo):
                            datos_flexion_de(calculo))
 
 
-def _contexto_flexion(resultado):
-    """Variables de la sección de flexión de la plantilla."""
-    f = resultado.flexion
-    if f is None:
-        return dict(flex_estado="No se evaluó la flexión en este cálculo.", flex_datos=[],
-                    flex_capas=[], flex_resultados=[], flex_chequeo="No evaluado",
-                    flex_vida="—", flex_conclusion="")
-    i, m, d = f.ideal, f.modificada, f.datos
-    num = lambda v, fmt="{:,.2f}": fmt.format(v)          # noqa: E731
-    datos = [
-        ("Resistencia del concreto f'c", "MPa", num(d.fc, "{:g}")),
-        ("Fluencia del acero fy", "MPa", num(d.fy, "{:g}")),
-        ("Factor del bloque β1", "-", num(i.beta1, "{:.3f}")),
-        ("Pérdida de área del acero por corrosión", "%", num(d.perdida_acero, "{:g}")),
-        ("Luz de la viga (simplemente apoyada) L", "m", num(d.luz, "{:g}")),
-        ("Carga muerta adicional", "kN/m", num(d.carga_muerta, "{:g}")),
-        ("Carga viva", "kN/m", num(d.carga_viva, "{:g}")),
-    ]
-    capas = [dict(capa=str(k), n=str(c["n_barras"]), diametro=f"{c['diametro_mm']:g}",
-                  y=f"{c['y']:.3f}", d=f"{c['d']:.3f}", as_ideal=f"{c['as_mm2']:,.0f}",
-                  as_mod=f"{cm['as_mm2']:,.0f}", fs=f"{cm['fs']:,.0f}")
-             for k, (c, cm) in enumerate(zip(i.capas, m.capas), start=1)]
-    filas = [
-        ("Área total de acero As", "mm²", i.as_total_mm2, m.as_total_mm2, "{:,.0f}"),
-        ("Peso propio (24 kN/m³ × A)", "kN/m", i.peso_propio, m.peso_propio, "{:,.2f}"),
-        ("Carga última wu", "kN/m", i.wu, m.wu, "{:,.2f}"),
-        ("Momento último Mu", "kN·m", i.mu, m.mu, "{:,.1f}"),
-        ("Profundidad del eje neutro c", "cm", i.c * 100, m.c * 100, "{:,.2f}"),
-        ("Altura del bloque a = β1·c", "cm", i.a * 100, m.a * 100, "{:,.2f}"),
-        ("Deformación del acero extremo εt", "‰", i.eps_t * 1000, m.eps_t * 1000, "{:,.2f}"),
-        ("Factor de reducción φ", "-", i.phi, m.phi, "{:.3f}"),
-        ("Resistencia nominal Mn", "kN·m", i.mn, m.mn, "{:,.1f}"),
-        ("Resistencia de diseño φMn", "kN·m", i.phi_mn, m.phi_mn, "{:,.1f}"),
-        ("Momento de agrietamiento Mcr", "kN·m", i.mcr, m.mcr, "{:,.1f}"),
-        ("Relación Mu / φMn", "-", i.relacion, m.relacion, "{:.3f}"),
-    ]
-    resultados = [dict(resultado=n, unidad=u, ideal=fmt.format(a), modificada=fmt.format(b))
-                  for n, u, a, b, fmt in filas]
-    resultados.append(dict(resultado="Chequeo φMn ≥ Mu", unidad="-",
-                           ideal="CUMPLE" if i.cumple else "NO CUMPLE",
-                           modificada="CUMPLE" if m.cumple else "NO CUMPLE"))
+# (nombre, unidad, valor a partir de un ResultadoFlexion, formato) de la tabla de resultados
+FILAS_FLEXION = [
+    ("Área total de acero As", "mm²", lambda r: r.as_total_mm2, "{:,.0f}"),
+    ("Peso propio (24 kN/m³ × A)", "kN/m", lambda r: r.peso_propio, "{:,.2f}"),
+    ("Carga última wu", "kN/m", lambda r: r.wu, "{:,.2f}"),
+    ("Momento último Mu", "kN·m", lambda r: r.mu, "{:,.1f}"),
+    ("Profundidad del eje neutro c", "cm", lambda r: r.c * 100, "{:,.2f}"),
+    ("Altura del bloque a = β1·c", "cm", lambda r: r.a * 100, "{:,.2f}"),
+    ("Deformación del acero extremo εt", "‰", lambda r: r.eps_t * 1000, "{:,.2f}"),
+    ("Factor de reducción φ", "-", lambda r: r.phi, "{:.3f}"),
+    ("Resistencia nominal Mn", "kN·m", lambda r: r.mn, "{:,.1f}"),
+    ("Resistencia de diseño φMn", "kN·m", lambda r: r.phi_mn, "{:,.1f}"),
+    ("Momento de agrietamiento Mcr", "kN·m", lambda r: r.mcr, "{:,.1f}"),
+    ("Relación Mu / φMn", "-", lambda r: r.relacion, "{:.3f}"),
+]
 
-    if f.alfa_falla == 0.0:
-        vida = "La viga no cumple a flexión ni con la sección de diseño."
-    elif f.tiempo_falla is not None:
-        restante = f.tiempo_falla - f.edad_anios
-        vida = (f"Si el daño avanza al mismo ritmo, φMn deja de cubrir Mu a los "
-                f"{f.tiempo_falla:.1f} años ({'hace' if restante < 0 else 'dentro de'} "
-                f"{abs(restante):.1f} años).")
-    elif f.alfa_falla is not None:
-        vida = f"φMn deja de cubrir Mu con un nivel de daño α = {f.alfa_falla:.2f}."
-    else:
-        vida = "φMn sigue cubriendo Mu en todo el rango de daño proyectado."
 
+def _sin_flexion():
+    return dict(flex_estado="No se evaluó la flexión en este cálculo.", flex_datos=[],
+                flex_capas=[], flex_resultados=[], flex_chequeo="No evaluado",
+                flex_vida="—", flex_conclusion="")
+
+
+def _datos_flexion(f):
+    d = f.datos
+    filas = [("Resistencia del concreto f'c", "MPa", f"{d.fc:g}"),
+             ("Fluencia del acero fy", "MPa", f"{d.fy:g}"),
+             ("Factor del bloque β1", "-", f"{f.ideal.beta1:.3f}"),
+             ("Pérdida de área del acero por corrosión", "%", f"{d.perdida_acero:g}"),
+             ("Luz de la viga (simplemente apoyada) L", "m", f"{d.luz:g}"),
+             ("Carga muerta adicional", "kN/m", f"{d.carga_muerta:g}"),
+             ("Carga viva", "kN/m", f"{d.carga_viva:g}")]
+    return [dict(dato=a, unidad=b, valor=c) for a, b, c in filas]
+
+
+def _capas_flexion(f):
+    return [dict(capa=str(k), n=str(c["n_barras"]), diametro=f"{c['diametro_mm']:g}",
+                 y=f"{c['y']:.3f}", d=f"{c['d']:.3f}", as_ideal=f"{c['as_mm2']:,.0f}",
+                 as_mod=f"{cm['as_mm2']:,.0f}", fs=f"{cm['fs']:,.0f}")
+            for k, (c, cm) in enumerate(zip(f.ideal.capas, f.modificada.capas), start=1)]
+
+
+def _resultados_flexion(f):
+    filas = [dict(resultado=n, unidad=u, ideal=fmt.format(valor(f.ideal)),
+                  modificada=fmt.format(valor(f.modificada)))
+             for n, u, valor, fmt in FILAS_FLEXION]
+    filas.append(dict(resultado="Chequeo φMn ≥ Mu", unidad="-",
+                      ideal="CUMPLE" if f.ideal.cumple else "NO CUMPLE",
+                      modificada="CUMPLE" if f.modificada.cumple else "NO CUMPLE"))
+    return filas
+
+
+def _conclusion_flexion(f):
+    m = f.modificada
     avisos = []
     if not m.ductil:
         avisos.append("εt < 0.004: la sección no cumple la deformación mínima de NSR-10 C.10.3.5.")
     if not m.cumple_as_min:
         avisos.append(f"El acero es menor que As,mín = {m.as_min_mm2:,.0f} mm² (NSR-10 C.10.5.1).")
-    conclusion = (f"A flexión, la sección inspeccionada tiene φMn = {m.phi_mn:,.1f} kN·m frente a "
-                  f"Mu = {m.mu:,.1f} kN·m (Mu/φMn = {m.relacion:.2f}): "
-                  f"{'CUMPLE' if m.cumple else 'NO CUMPLE'}. La resistencia de diseño bajó "
-                  f"{f.perdida_phi_mn:.1f} % respecto a la viga sana. {vida} " + " ".join(avisos))
+    texto = (f"A flexión, la sección inspeccionada tiene φMn = {m.phi_mn:,.1f} kN·m frente a "
+             f"Mu = {m.mu:,.1f} kN·m (Mu/φMn = {m.relacion:.2f}): "
+             f"{'CUMPLE' if m.cumple else 'NO CUMPLE'}. La resistencia de diseño bajó "
+             f"{f.perdida_phi_mn:.1f} % respecto a la viga sana. {f.texto_vida()} ")
+    return (texto + " ".join(avisos)).strip()
+
+
+def _contexto_flexion(resultado):
+    """Variables de la sección de flexión de la plantilla."""
+    f = resultado.flexion
+    if f is None:
+        return _sin_flexion()
     return dict(
         flex_estado="Se evaluó la viga simplemente apoyada con las cargas y el refuerzo indicados.",
-        flex_datos=[dict(dato=a, unidad=b, valor=c) for a, b, c in datos],
-        flex_capas=capas, flex_resultados=resultados,
-        flex_chequeo="CUMPLE" if m.cumple else "NO CUMPLE",
-        flex_vida=vida, flex_conclusion=conclusion.strip(),
+        flex_datos=_datos_flexion(f), flex_capas=_capas_flexion(f),
+        flex_resultados=_resultados_flexion(f),
+        flex_chequeo="CUMPLE" if f.modificada.cumple else "NO CUMPLE",
+        flex_vida=f.texto_vida(), flex_conclusion=_conclusion_flexion(f),
     )
 
 

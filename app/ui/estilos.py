@@ -104,3 +104,47 @@ def estado_vacio(icono, texto, detalle=""):
              ft.Text(detalle, size=13, color=TEXTO_SUAVE, text_align=ft.TextAlign.CENTER)],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8, tight=True),
     )
+
+
+# ---------------------------------------------------------------------------
+# Tarjeta de datos de entrada (azul marino con acentos celestes)
+# ---------------------------------------------------------------------------
+FONDO_ENTRADA = "#0F2A44"
+BORDE_ENTRADA = "#1F4A70"
+SOBRE_ENTRADA = "#FFFFFF"
+SUAVE_ENTRADA = "#9FD8F7"
+ROJO_ERROR = "#FF5252"
+BORDE_CAMPO = "#8CFFFFFF"
+
+
+def estilo_campo():
+    """Estilo de los TextField sobre la tarjeta de entrada (solo opciones que existan)."""
+    from app.ui.compat import _acepta
+    estilo = dict(
+        filled=True, bgcolor="#33000000", border_color=BORDE_CAMPO,
+        focused_border_color=AZUL, color=SOBRE_ENTRADA, cursor_color=SOBRE_ENTRADA,
+        label_style=ft.TextStyle(color=SUAVE_ENTRADA),
+        hint_style=ft.TextStyle(color="#99FFFFFF"),
+        error_style=ft.TextStyle(color="#FFF176", weight=ft.FontWeight.W_600),
+    )
+    return {k: v for k, v in estilo.items() if _acepta(ft.TextField, k)}
+
+
+def marcar_campo(campo, error, etiqueta, errores):
+    """Marca un campo en rojo si tiene error y agrega el mensaje a la lista ``errores``."""
+    campo.error_text = error
+    campo.border_color = ROJO_ERROR if error else BORDE_CAMPO
+    campo.focused_border_color = ROJO_ERROR if error else AZUL
+    if error:
+        errores.append(f"{etiqueta}: {error}")
+
+
+def estilo_boton(fondo, texto, borde=None):
+    """ButtonStyle con fondo, color de texto y, si se pide, un borde."""
+    lado = {"side": ft.BorderSide(1.5, borde)} if borde else {}
+    return ft.ButtonStyle(bgcolor=fondo, color=texto, **lado)
+
+
+def encabezado_tabla(*titulos):
+    """Columnas de una DataTable con los títulos en negrita."""
+    return [ft.DataColumn(ft.Text(t, weight=ft.FontWeight.W_600)) for t in titulos]
